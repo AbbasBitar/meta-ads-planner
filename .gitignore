@@ -2,3 +2,5 @@
 worker/.wrangler/
 
 worker/.dev.vars
+
+dist/

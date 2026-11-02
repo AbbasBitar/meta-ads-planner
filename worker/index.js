@@ -1,8 +1,12 @@
 import {validate,generate} from './planner.js';
 import {authorizeAccess,getAccessToken} from './access.js';
 
-const ORIGIN = 'https://abbasbitar.github.io';
-const json=(data,status=200,origin='')=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...(origin===ORIGIN?{'access-control-allow-origin':ORIGIN,'vary':'Origin'}:{})}});
+const ALLOWED_ORIGINS = new Set([
+  'https://abbasbitar.github.io',
+  'https://ads-planner.teckhub.net'
+]);
+const isAllowedOrigin = origin => ALLOWED_ORIGINS.has(origin);
+const json=(data,status=200,origin='')=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...(isAllowedOrigin(origin)?{'access-control-allow-origin':origin,'vary':'Origin'}:{})}});
 const validId=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x);
 const safeText=(value,max=400)=>typeof value==='string'&&value.length<=max&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value);
 export function checkSubmission(body){
@@ -53,7 +57,7 @@ export default {
   const url=new URL(request.url),origin=request.headers.get('Origin')||'';
   if(request.method==='GET'&&url.pathname==='/health')return json({status:'ok',service:'meta-ads-planner-api'});
   if(url.pathname!=='/submit')return json({error:'Not found'},404);
-  if(request.method==='OPTIONS')return origin===ORIGIN?new Response(null,{status:204,headers:{'access-control-allow-origin':ORIGIN,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','access-control-max-age':'600','vary':'Origin'}}):json({error:'Forbidden'},403);
+  if(request.method==='OPTIONS')return isAllowedOrigin(origin)?new Response(null,{status:204,headers:{'access-control-allow-origin':origin,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','access-control-max-age':'600','vary':'Origin'}}):json({error:'Forbidden'},403);
   if(request.method!=='POST')return json({error:'Method not allowed'},405,origin);
 
    // Require a cryptographically verified Cloudflare Access JWT.
@@ -61,7 +65,7 @@ export default {
    const authenticated=await authorizeAccess(accessToken,env.ACCESS_AUD,env.APPROVED_EMAILS);
 
    if(!authenticated)return json({error:'Unauthorized'},401,origin);
-  if(origin!==ORIGIN)return json({error:'Forbidden origin'},403);
+  if(!isAllowedOrigin(origin))return json({error:'Forbidden origin'},403);
   if(!request.headers.get('content-type')?.toLowerCase().startsWith('application/json'))return json({error:'JSON required'},415,origin);
   if(Number(request.headers.get('content-length')||0)>12000)return json({error:'Request too large'},413,origin);
   if(!env.TURNSTILE_SECRET||!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID||!env.SUBMISSIONS)return json({error:'Server not configured'},503,origin);
@@ -80,7 +84,7 @@ export default {
   if(await env.SUBMISSIONS.get(key))return json({error:'Duplicate submission'},409,origin);
   const form=new FormData();form.append('secret',env.TURNSTILE_SECRET);form.append('response',body.turnstileToken);if(ip!=='unknown')form.append('remoteip',ip);
   let turnstile;try{const r=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form,signal:AbortSignal.timeout(8000)});turnstile=await r.json()}catch{return json({error:'Security verification unavailable. Try again.'},503,origin)}
-  if(!turnstile.success||turnstile.hostname!=='abbasbitar.github.io')return json({error:'Security verification failed'},403,origin);
+  if(!turnstile.success||!['abbasbitar.github.io','ads-planner.teckhub.net'].includes(turnstile.hostname))return json({error:'Security verification failed'},403,origin);
   const reference=`MAP-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${body.submissionId.slice(0,8).toUpperCase()}`;
   const report=formatReport(generate(body.data),reference);
   // Telegram sendDocument supports reports larger than sendMessage's 4096-character limit.
