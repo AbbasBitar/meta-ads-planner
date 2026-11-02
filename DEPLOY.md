@@ -1,48 +1,102 @@
-# Meta Ads Planner Telegram delivery v2
+# Meta Ads Planner - Production Deployment
 
-## Before enabling real customer data
+## Production infrastructure
 
-This public GitHub Pages form has no user authentication. Use dummy data for initial testing. Turnstile is an anti-bot challenge, **not** an authorization control. Cloudflare KV rate limiting is best-effort, not atomic. For production, add Cloudflare WAF rate limiting, restrict representative access with an identity provider, and assess customer privacy and consent.
+- Website: https://ads-planner.teckhub.net
+- Repository: https://github.com/AbbasBitar/meta-ads-planner
+- Cloudflare Pages project: meta-ads-planner
+- Production branch: main
+- Cloudflare Worker: meta-ads-planner-apicopy
+- Worker configuration: worker/wrangler.toml
+- KV binding: SUBMISSIONS
 
-## Step A — Cloudflare Turnstile
+## Frontend deployment
 
-1. Cloudflare Dashboard → Turnstile → Add widget.
-2. Widget hostname: `abbasbitar.github.io`; choose Managed mode.
-3. Copy **site key** into `config.js` in the GitHub Pages repo.
-4. Store **secret key** in Worker Settings → Variables and Secrets as `TURNSTILE_SECRET` (type Secret). Never commit it.
+Cloudflare Pages deploys automatically from the GitHub main branch.
 
-## Step B — Cloudflare KV
+Expected Pages configuration:
 
-1. Cloudflare Dashboard → Storage & databases → KV → Create namespace named `meta-ads-planner-submissions`.
-2. Bind it to the Worker under Settings → Bindings with variable name `SUBMISSIONS`.
-3. For Wrangler deployments, replace `REPLACE_WITH_KV_NAMESPACE_ID` in `worker/wrangler.toml` with the namespace ID. For dashboard deployments, bind it in the dashboard and paste `worker/index.js` and `worker/planner.js` using the multi-file editor.
+- Build command: npm run build
+- Build output directory: dist
+- Node.js version: 22
 
-## Step C — Deploy Worker
+The functions/ directory contains the Pages API integration.
 
-The Worker imports `./planner.js`. Both files must be present. Use Wrangler from the `worker/` directory (Node 22 recommended):
+GitHub Pages is not used for production.
 
-```bash
-npm install -g wrangler
-cd worker
-# Edit wrangler.toml KV namespace ID first
-wrangler login
-wrangler deploy
-```
+## Worker deployment
 
-Worker name matches the existing `meta-ads-planner-apicopy`. The existing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets remain on the Worker. Verify `/health` returns `status: ok`.
+Run from the repository root:
 
-## Step D — Deploy GitHub Pages
+    npm test
+    npm run build
+    npx wrangler deploy --config worker/wrangler.toml
 
-Copy `index.html`, `app.js`, `config.js`, `styles.css`, `src/planner.js`, and `tests/` to the GitHub repository. Run `npm test`. Push to `main`; GitHub Pages deploys via existing Actions workflow.
+Worker deployment is separate from Cloudflare Pages deployment.
+Only deploy the Worker after validating intended source changes.
 
-## Step E — Smoke test
+## Authentication and security
 
-1. Load the public site; check Turnstile loads.
-2. Submit dummy customer and confirm Telegram receives `MAP-...txt` attachment.
-3. Verify the representative sees **only** the reference and success message.
-4. Verify invalid age/budget and incomplete Turnstile do not submit.
-5. Confirm the report is **not** rendered in the browser or saved in the repository.
+Cloudflare Access protects the production application.
+The Pages Function and Worker enforce Access authentication.
+The Worker also checks authorized representative identities.
 
-## Limitations
+Maintain the approved representative allowlist securely.
+Do not disable Access or WAF rules during troubleshooting.
 
-The Worker verifies Turnstile, origin and input schema, and uses KV for best-effort rate and duplicate control. `Origin`/CORS alone are not authentication. KV is eventually consistent; strong exactly-once delivery would require a Durable Object/queue. A timeout can make Telegram delivery uncertain, so confirm with the owner before retrying. Customer submissions are sent to Telegram; Telegram's data retention and privacy policies apply. Cloudflare processes submissions transiently; KV stores only hashed-IP-derived rate keys and submission IDs/references, not the full customer report. IP addresses are hashed with a server-side secret before being used as KV keys.
+Turnstile provides bot protection, not user authentication.
+
+The frontend Turnstile site key is configured in config.js.
+The Worker requires the corresponding TURNSTILE_SECRET.
+
+Store all credentials as Cloudflare Worker secrets.
+Never commit credentials or authentication tokens.
+
+## Required Worker resources
+
+Cloudflare KV:
+
+- Binding: SUBMISSIONS
+- Namespace configured in worker/wrangler.toml
+
+Telegram secrets:
+
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_CHAT_ID
+
+Additional authentication or application secrets must remain configured
+according to the Worker source and Cloudflare environment.
+
+## Production verification
+
+Run:
+
+    npm test
+    npm run build
+    npx wrangler pages deployment list --project-name meta-ads-planner
+    npx wrangler deployments list --config worker/wrangler.toml
+
+Verify:
+
+1. Automated tests pass.
+2. Cloudflare Pages production uses the intended main commit.
+3. All frontend assets are present in dist/.
+4. Cloudflare Access authenticates approved representatives.
+5. Turnstile verification succeeds.
+6. The Worker accepts a valid submission.
+7. The representative receives a submission reference.
+8. Telegram receives the report and detailed caption.
+
+## Rollback and cleanup
+
+Preserve previous Cloudflare deployments for rollback.
+Do not delete production KV namespaces or Worker secrets.
+Review Cloudflare Security Events when requests are blocked.
+Do not store real customer reports in GitHub.
+
+## CI/CD responsibilities
+
+- GitHub Actions: automated tests and build verification.
+- Cloudflare Pages: production frontend deployment from main.
+- Wrangler: controlled Worker deployment.
+- GitHub Pages: legacy hosting unpublished.

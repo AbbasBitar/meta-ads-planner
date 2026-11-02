@@ -1,37 +1,39 @@
-name: Test and deploy Pages
+﻿name: CI - Tests and Build
+
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: true
+
 jobs:
   test:
+    name: Test and Build
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify generated assets
+        shell: bash
+        run: |
+          test -f dist/index.html
+          test -f dist/app.js
+          test -f dist/config.js
+          test -f dist/styles.css
+          test -f dist/src/planner.js

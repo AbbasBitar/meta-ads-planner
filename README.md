@@ -1,25 +1,61 @@
 # Meta Ads Planner
 
-Static client-side Meta Ads planning form for customer-service representatives. No backend, cookies, analytics, account login, or customer-data storage. Form values are only in memory until tab closes. Reports can be downloaded as HTML or printed to PDF.
+Secure campaign intake portal for authorized Meta Ads representatives.
 
-## Test locally
+## Production architecture
 
-```bash
-npm test
-python3 -m http.server 8000
-```
+- Website: https://ads-planner.teckhub.net
+- Hosting: Cloudflare Pages (meta-ads-planner)
+- Production branch: main
+- Backend: Cloudflare Worker (meta-ads-planner-apicopy)
+- Authentication: Cloudflare Access
+- Bot protection: Cloudflare Turnstile
+- Storage: Cloudflare KV (SUBMISSIONS)
+- Notifications: Telegram
 
-Open http://localhost:8000 (do not open index.html via file:// because JavaScript modules may be blocked).
+## Submission workflow
 
-## Deploy on GitHub Pages
+1. An authorized representative signs in through Cloudflare Access.
+2. The representative completes the campaign intake form.
+3. The frontend validates the information and verifies Turnstile.
+4. A Cloudflare Pages Function forwards the authenticated submission to the Worker.
+5. The Worker validates and processes the submission.
+6. Telegram receives the campaign report and detailed caption.
+7. The representative receives a submission reference.
 
-1. Create a **new public** GitHub repository, e.g. `meta-ads-planner`. Never upload real customer records.
-2. Upload the contents of this directory (including `.github/workflows/ci.yml`) to its `main` branch.
-3. In repository **Settings → Pages**, set **Build and deployment → Source → GitHub Actions**.
-4. Open **Actions**, run **Test and deploy Pages** if not already running. Confirm tests and deploy are green.
-5. Find the published URL in **Settings → Pages** (typically `https://USERNAME.github.io/meta-ads-planner/`). Share it with your representative.
-6. Test on a phone and desktop. Submit a dummy customer, confirm totals, export HTML and print PDF. Check the preview and Meta settings manually before any real campaign.
+The full report is not displayed to the representative.
 
-## Important
+## Development
 
-GitHub Pages is publicly accessible: it does not provide employee authentication. Do not enter passwords, card data, private phone numbers or other sensitive customer information. Generated reports contain the data entered; share and store them securely. This is rule-based guidance, not live Meta API validation or guaranteed performance. Meta may change objectives, targeting options, policies, or placement names.
+Requirements: Node.js 22 or later and npm.
+
+Run automated tests:
+
+    npm test
+
+Build the frontend:
+
+    npm run build
+
+Build output: dist/
+
+## Deployment
+
+Cloudflare Pages deploys frontend changes from the main branch.
+The Worker is deployed separately through Wrangler.
+See DEPLOY.md for production deployment and verification.
+
+## Security
+
+- Cloudflare Access restricts representative access.
+- The Worker validates Access authentication and approved identities.
+- Turnstile is bot protection, not authentication.
+- Keep Telegram credentials and Turnstile secrets out of Git.
+- Never collect passwords, payment card data, or unnecessary personal information.
+- Cloudflare KV provides best-effort submission controls.
+- Campaign recommendations do not guarantee advertising results.
+
+## CI/CD
+
+GitHub Actions runs automated tests and validates the frontend build.
+Cloudflare Pages hosts production. GitHub Pages is not used.
