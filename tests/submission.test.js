@@ -7,3 +7,16 @@ test('rejects unexpected fields',()=>assert.ok(checkSubmission({...body,data:{..
 test('rejects oversized input',()=>assert.ok(checkSubmission({...body,data:{...data,notes:'x'.repeat(1001)}}).length));
 test('rejects invalid enum',()=>assert.ok(checkSubmission({...body,data:{...data,goal:'hack'}}).length));
 test('rejects invalid budget',()=>assert.ok(checkSubmission({...body,data:{...data,budget:'-2'}}).length));
+
+test('accepts business description and destination together', () => {
+  const submission = {
+    ...body,
+    data: {
+      ...data,
+      description: 'Photography services for families in Lebanon',
+      destination: 'https://example.com'
+    }
+  };
+
+  assert.deepEqual(checkSubmission(submission), []);
+});
