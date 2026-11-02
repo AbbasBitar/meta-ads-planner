@@ -6,7 +6,19 @@ const status=document.querySelector('#submitStatus');
 const submit=document.querySelector('#submit');
 const config=window.PLANNER_CONFIG;
 let widgetId=null;
-function getData(){const f=new FormData(form);return Object.fromEntries([...f.keys()].filter(k=>k!=='channels').map(k=>[k,f.get(k)]).concat([['channels',f.getAll('channels')]]));}
+function getData(){
+  const f = new FormData(form);
+
+  // Turnstile verification is sent separately, not as customer data.
+  f.delete('cf-turnstile-response');
+
+  return Object.fromEntries(
+    [...f.keys()]
+      .filter(k => k !== 'channels')
+      .map(k => [k, f.get(k)])
+      .concat([['channels', f.getAll('channels')]])
+  );
+}
 function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);}
 function update(){const x=getData();if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
 form.addEventListener('input',update);form.addEventListener('change',update);update();
