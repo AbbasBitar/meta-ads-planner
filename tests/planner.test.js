@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {validate,calculateBudget,generate} from '../src/planner.js';
+const base={client:'A',page:'B',representative:'C',product:'Newborn sessions',locations:'Beirut',audience:'Parents',channels:['Instagram Direct'],budget:'20',days:'4',minAge:'23',maxAge:'45',budgetType:'lifetime',goal:'profile',category:'Photography',language:'English',platform:'manager',post:'new',gender:'All',creative:'Single image'};
+test('lifetime $20 / 4 days',()=>assert.deepEqual(calculateBudget(base),{total:20,averageDaily:5,days:4}));
+test('daily $5 x 4 days',()=>assert.deepEqual(calculateBudget({...base,budgetType:'daily',budget:'5'}),{total:20,averageDaily:5,days:4}));
+test('reject invalid duration, ages, and empty channels',()=>{const e=validate({...base,days:'0',minAge:'50',maxAge:'20',channels:[]});assert.equal(e.length,3)});
+test('reject missing client metadata',()=>assert.ok(validate({...base,representative:''}).some(x=>x.includes('representative'))));
+test('reject non-HTTPS website destination',()=>assert.ok(validate({...base,goal:'website',destination:'http://example.com'}).length));
+test('valid profile campaign generates profile visits and checklist',()=>{const p=generate(base);assert.equal(p.objective,'Traffic');assert.equal(p.totalBudget,20);assert.ok(p.checklist.length>=7);assert.match(p.caption,/Newborn sessions/)});
+test('messaging campaign uses conversations',()=>assert.match(generate({...base,goal:'messages'}).performanceGoal,/conversations/));
+test('no server-side data transfer needed for generation',()=>assert.equal(validate(base).length,0));
