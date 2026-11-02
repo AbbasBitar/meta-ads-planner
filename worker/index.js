@@ -1,4 +1,5 @@
 import {validate,generate} from './planner.js';
+import {authorizeAccess,getAccessToken} from './access.js';
 
 const ORIGIN = 'https://abbasbitar.github.io';
 const json=(data,status=200,origin='')=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...(origin===ORIGIN?{'access-control-allow-origin':ORIGIN,'vary':'Origin'}:{})}});
@@ -54,6 +55,12 @@ export default {
   if(url.pathname!=='/submit')return json({error:'Not found'},404);
   if(request.method==='OPTIONS')return origin===ORIGIN?new Response(null,{status:204,headers:{'access-control-allow-origin':ORIGIN,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','access-control-max-age':'600','vary':'Origin'}}):json({error:'Forbidden'},403);
   if(request.method!=='POST')return json({error:'Method not allowed'},405,origin);
+
+   // Require a cryptographically verified Cloudflare Access JWT.
+   const accessToken=getAccessToken(request);
+   const authenticated=await authorizeAccess(accessToken,env.ACCESS_AUD,env.APPROVED_EMAILS);
+
+   if(!authenticated)return json({error:'Unauthorized'},401,origin);
   if(origin!==ORIGIN)return json({error:'Forbidden origin'},403);
   if(!request.headers.get('content-type')?.toLowerCase().startsWith('application/json'))return json({error:'JSON required'},415,origin);
   if(Number(request.headers.get('content-length')||0)>12000)return json({error:'Request too large'},413,origin);
