@@ -1,0 +1,9 @@
+
+name = "meta-ads-planner-apicopy"
+main = "index.js"
+compatibility_date = "2026-10-01"
+account_id = "d153df7bc479bf1feb77065781a46394"
+
+[[kv_namespaces]]
+binding = "SUBMISSIONS"
+id = "3d500e63351848689b46bb0bc0d01fca"

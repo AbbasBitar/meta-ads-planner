@@ -1,13 +1,32 @@
-import {validate,calculateBudget,generate} from './src/planner.js';
-const form=document.querySelector('#intake'),results=document.querySelector('#results'),errors=document.querySelector('#errors'),preview=document.querySelector('#budgetPreview');
-let latest=null;
+import {validate,calculateBudget} from './src/planner.js';
+const form=document.querySelector('#intake');
+const errors=document.querySelector('#errors');
+const preview=document.querySelector('#budgetPreview');
+const status=document.querySelector('#submitStatus');
+const submit=document.querySelector('#submit');
+const config=window.PLANNER_CONFIG;
+let widgetId=null;
 function getData(){const f=new FormData(form);return Object.fromEntries([...f.keys()].filter(k=>k!=='channels').map(k=>[k,f.get(k)]).concat([['channels',f.getAll('channels')]]));}
 function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);}
 function update(){const x=getData();if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
 form.addEventListener('input',update);form.addEventListener('change',update);update();
-function el(tag,text,parent){const e=document.createElement(tag);e.textContent=text;parent.append(e);return e;}
-function render(p){const root=document.querySelector('#report');root.replaceChildren();el('h3',`${p.page} — ${p.client}`,root);el('p',`Representative: ${p.representative} · Reference: ${p.reference}`,root);const table=document.createElement('table');root.append(table);const fields=[['Product / service',p.product],['Advertising tool',p.platform],['Ad source',p.post],['Campaign objective',p.objective],['Conversion location',p.conversionLocation],['Performance goal',p.performanceGoal],['CTA',p.cta],['Target locations',p.locations],['Location guidance',p.locationGuidance],['Age / gender',`${p.age} · ${p.gender}`],['Ideal customer',p.audience],['Suggested interest searches',p.interests.join(', ')||'Broad targeting'],['Interest verification',p.interestNotice],['Customer channels',p.channels],['Budget type',p.budgetType],['Total planned budget',money(p.totalBudget)],['Average daily budget',money(p.averageDaily)],['Duration',`${p.durationDays} days`],['Creative',p.creative],['Placements',p.placements],['Tracking',p.tracking],['Instagram username',p.handle],['Notes',p.notes||'None']];for(const [key,value] of fields){const tr=document.createElement('tr');el('th',key,tr);el('td',value,tr);table.append(tr);}el('h3','Suggested caption',root);el('p',p.caption,root).className='caption';if(p.warnings.length){el('h3','Important considerations',root);const ul=el('ul','',root);for(const w of p.warnings)el('li',w,ul);}el('h3','Pre-publish checklist',root);const ul=el('ul','',root);for(const item of p.checklist)el('li',item,ul);results.hidden=false;results.scrollIntoView({behavior:'smooth',block:'start'});}
-form.addEventListener('submit',e=>{e.preventDefault();const x=getData();const problems=validate(x);errors.replaceChildren();if(problems.length){const ul=el('ul','',errors);problems.forEach(t=>el('li',t,ul));errors.scrollIntoView();return;}latest=generate(x);render(latest);});
-document.querySelector('#print').addEventListener('click',()=>window.print());
-document.querySelector('#new').addEventListener('click',()=>{form.reset();latest=null;results.hidden=true;errors.replaceChildren();update();window.scrollTo({top:0,behavior:'smooth'});});
-document.querySelector('#download').addEventListener('click',()=>{if(!latest)return;const report=document.querySelector('#report').cloneNode(true);const doc=document.implementation.createHTMLDocument('Campaign Report');const style=doc.createElement('style');style.textContent='body{font:15px system-ui;margin:36px;color:#15253a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:10px;text-align:left;vertical-align:top}th{width:32%;background:#eef3fa}h3{margin-top:28px}.caption{white-space:pre-line}';doc.head.append(style);doc.body.append(report);const blob=new Blob(['<!doctype html>\n'+doc.documentElement.outerHTML],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`meta-ads-report-${new Date().toISOString().slice(0,10)}.html`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+function showErrors(messages){errors.replaceChildren();if(messages.length){const ul=document.createElement('ul');for(const m of messages){const li=document.createElement('li');li.textContent=m;ul.append(li);}errors.append(ul);}}
+function initTurnstile(){if(!window.turnstile){setTimeout(initTurnstile,150);return;}if(!config?.turnstileSiteKey||config.turnstileSiteKey.startsWith('REPLACE_')){showErrors(['Turnstile is not configured. Contact the administrator.']);submit.disabled=true;return;}widgetId=window.turnstile.render('#turnstile',{sitekey:config.turnstileSiteKey});}
+initTurnstile();
+form.addEventListener('submit',async e=>{
+ e.preventDefault();showErrors([]);status.textContent='';
+ const data=getData(), problems=validate(data);
+ if(problems.length){showErrors(problems);errors.scrollIntoView();return;}
+ const token=widgetId===null?'':window.turnstile?.getResponse(widgetId);
+ if(!token){showErrors(['Complete the security verification before submitting.']);return;}
+ submit.disabled=true;submit.textContent='Submitting…';
+ try{
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);
+  let response;try{response=await fetch(config.apiUrl+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,turnstileToken:token,submissionId:crypto.randomUUID()}),signal:controller.signal});}finally{clearTimeout(timeout);}
+  const result=await response.json();
+  if(!response.ok||!result.success)throw new Error(result.error||'Submission failed. Please retry.');
+  form.reset();update();status.textContent=`Submitted successfully. Reference: ${result.reference}. The campaign owner will receive the report privately.`;
+  status.scrollIntoView({behavior:'smooth'});
+ }catch(err){showErrors([err.name==='AbortError'?'Request timed out. Please contact the campaign owner before retrying to avoid duplicates.':err.message||'Submission failed.']);}
+ finally{submit.disabled=false;submit.textContent='Submit configuration for review';if(widgetId!==null)window.turnstile?.reset(widgetId);}
+});
