@@ -10,7 +10,8 @@ Secure campaign intake portal for authorized Meta Ads representatives.
 - Backend: Cloudflare Worker (meta-ads-planner-apicopy)
 - Authentication: Cloudflare Access
 - Bot protection: Cloudflare Turnstile
-- Storage: Cloudflare KV (SUBMISSIONS)
+- Submission coordination: SQLite-backed Cloudflare Durable Object
+- Rate limiting and migration fallback: Cloudflare KV (SUBMISSIONS)
 - Notifications: Telegram
 
 ## Submission workflow
@@ -52,7 +53,8 @@ See DEPLOY.md for production deployment and verification.
 - Turnstile is bot protection, not authentication.
 - Keep Telegram credentials and Turnstile secrets out of Git.
 - Never collect passwords, payment card data, or unnecessary personal information.
-- Cloudflare KV provides best-effort submission controls.
+- The Durable Object stores a canonical payload digest and submission state, not raw campaign data.
+- Cloudflare KV remains a best-effort rate limiter; Durable Object storage coordinates submission retries.
 - Campaign recommendations do not guarantee advertising results.
 
 ## CI/CD

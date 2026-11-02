@@ -43,7 +43,7 @@ function createToken(email) {
   return `${input}.${signature}`;
 }
 
-async function sendRequest(email) {
+async function sendRequest(email, options = {}) {
   const request = new Request(`${ORIGIN}/submit`, {
     method: 'POST',
     headers: {
@@ -51,10 +51,10 @@ async function sendRequest(email) {
       'Content-Type': 'application/json',
       'Cf-Access-Jwt-Assertion': createToken(email)
     },
-    body: '{}'
+    body: options.body ?? '{}'
   });
 
-  return worker.fetch(request, {
+  const env = {
     ACCESS_AUD: AUD,
     APPROVED_EMAILS: APPROVED,
 
@@ -64,10 +64,16 @@ async function sendRequest(email) {
     TELEGRAM_CHAT_ID: 'test-chat-id',
 
     SUBMISSIONS: {
-      get: async () => null,
-      put: async () => {}
+      get: async () => { options.kvReads?.(); return null; },
+      put: async () => { options.kvWrites?.(); }
+    },
+    SUBMISSION_COORDINATOR: {
+      idFromName: () => 'unused',
+      get: () => { options.coordinatorGets?.(); return { fetch: async () => Response.json({}) }; }
     }
-  });
+  };
+  if(options.includePause!==false)env.SUBMISSIONS_PAUSED=options.pause??'false';
+  return worker.fetch(request, env);
 }
 
 test('Worker accepts approved representative identity', async () => {
@@ -98,11 +104,76 @@ test('Worker rejects unapproved representative identity', async () => {
     });
 
   try {
-    const response = await sendRequest('unknown@gmail.com');
+    const response = await sendRequest('unknown@gmail.com',{pause:'true'});
 
     assert.equal(response.status, 401);
     assert.equal((await response.json()).error, 'Unauthorized');
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('paused submissions return 503 after authentication and before validation or delivery work', async () => {
+  const originalFetch=globalThis.fetch;
+  let turnstileCalls=0,kvCalls=0,coordinatorCalls=0;
+  globalThis.fetch=async url=>{
+    if(String(url).includes('/access/certs'))return new Response(JSON.stringify({keys:[jwk]}),{status:200});
+    if(String(url).includes('/siteverify'))turnstileCalls++;
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+  try{
+    const response=await sendRequest('rep1@gmail.com',{
+      pause:'true',
+      kvReads:()=>kvCalls++,
+      kvWrites:()=>kvCalls++,
+      coordinatorGets:()=>coordinatorCalls++
+    });
+    assert.equal(response.status,503);
+    assert.deepEqual(await response.json(),{
+      error:'Submissions are temporarily paused for maintenance. Your recovery ID has been preserved; retry after submissions are re-enabled.',
+      code:'submissions_paused',
+      status:'maintenance'
+    });
+    assert.equal(turnstileCalls,0);
+    assert.equal(kvCalls,0);
+    assert.equal(coordinatorCalls,0);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('unpaused configuration continues normal request validation', async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({keys:[jwk]}),{status:200});
+  try{
+    const response=await sendRequest('rep1@gmail.com',{pause:'false'});
+    assert.equal(response.status,400);
+    assert.equal((await response.json()).error,'Invalid request');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('missing or invalid maintenance configuration fails closed', async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({keys:[jwk]}),{status:200});
+  try{
+    for(const options of [
+      {includePause:false},
+      {pause:''},
+      {pause:'TRUE'},
+      {pause:'yes'},
+      {pause:false}
+    ]){
+      const response=await sendRequest('rep1@gmail.com',options);
+      assert.equal(response.status,503);
+      const result=await response.json();
+      assert.equal(result.code,'maintenance_configuration_invalid');
+      assert.equal(result.status,'maintenance');
+    }
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('health remains available while submissions are paused or maintenance config is missing', async () => {
+  const paused=await worker.fetch(new Request('https://api.example/health'),{SUBMISSIONS_PAUSED:'true'});
+  const missing=await worker.fetch(new Request('https://api.example/health'),{});
+  assert.equal(paused.status,200);
+  assert.equal(missing.status,200);
+  assert.deepEqual(await paused.json(),{status:'ok',service:'meta-ads-planner-api'});
 });
