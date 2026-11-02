@@ -1,5 +1,36 @@
 export const required = ['client','page','representative','product','locations','audience'];
+export function validPostUrl(value) {
+  if (typeof value !== 'string' || value.length > 250) return false;
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+
+    if (url.protocol !== 'https:' ||
+        url.username || url.password ||
+        url.port || !['www.instagram.com', 'instagram.com', 'm.instagram.com',
+                      'www.facebook.com', 'facebook.com', 'm.facebook.com',
+                      'web.facebook.com', 'fb.watch'].includes(host)) {
+      return false;
+    }
+
+    if (host === 'fb.watch') {
+      return /^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+    }
+
+    return url.pathname.length > 1 && url.pathname !== '//';
+  } catch {
+    return false;
+  }
+}
+
 export function validate(x){
+  if (x.post === 'existing' && !String(x.postUrl ?? '').trim()) {
+    return ['Post / Reel URL is required when using an existing post'];
+  }
+  if (String(x.postUrl ?? '').trim() && !validPostUrl(x.postUrl.trim())) {
+    return ['Enter a valid HTTPS Instagram or Facebook post URL'];
+  }
  const errors=[];
  for(const k of required) if(!String(x[k]??'').trim()) errors.push(`${k} is required`);
  const money=Number(x.budget), days=Number(x.days), min=Number(x.minAge), max=Number(x.maxAge);

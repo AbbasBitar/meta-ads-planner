@@ -23,6 +23,7 @@ const allowed = [
   'description',
   'platform',
   'post',
+  'postUrl',
   'goal',
   'destination',
   'channels',
@@ -49,7 +50,7 @@ for(const [k,v] of Object.entries(d)){
  return validate(d);
 }
 function formatReport(p,ref){
- const lines=[`📋 META ADS PLANNER — NEW SUBMISSION`,`Reference: ${ref}`,`Client: ${p.client}`,`Page: ${p.page}`,`Instagram: ${p.handle}`,`Representative: ${p.representative}`,`Client reference: ${p.reference}`,``,`🎯 CAMPAIGN`,`Product: ${p.product}`,`Business description: ${p.description}`,`Tool: ${p.platform}`,`Ad source: ${p.post}`,`Objective: ${p.objective}`,`Conversion location: ${p.conversionLocation}`,`Performance goal: ${p.performanceGoal}`,`CTA: ${p.cta}`,``,`👥 AUDIENCE`,`Locations: ${p.locations}`,`Age: ${p.age}; Gender: ${p.gender}`,`Ideal customer: ${p.audience}`,`Interest searches (verify in Meta): ${p.interests.join(', ')||'Broad'}`,p.interestNotice,``,`💵 BUDGET`,`Type: ${p.budgetType}`,`Total: $${p.totalBudget.toFixed(2)}`,`Average/day: $${p.averageDaily.toFixed(2)}`,`Duration: ${p.durationDays} days`,``,`📣 CREATIVE`,`Format: ${p.creative}`,`Placements: ${p.placements}`,`Channels: ${p.channels}`,`Caption suggestion:\n${p.caption}`,``,`📝 NOTES`,`Notes: ${p.notes}`,``,`⚠️ REVIEW`,...p.warnings,``,`PRE-PUBLISH CHECKLIST`,...p.checklist.map(s=>`☐ ${s}`),``,`Meta settings and targeting availability require manual verification.`];
+ const lines=[`📋 META ADS PLANNER — NEW SUBMISSION`,`Reference: ${ref}`,`Client: ${p.client}`,`Page: ${p.page}`,`Instagram: ${p.handle}`,`Representative: ${p.representative}`,`Client reference: ${p.reference}`,``,`🎯 CAMPAIGN`,`Product: ${p.product}`,`Business description: ${p.description}`,`Tool: ${p.platform}`,`Ad source: ${p.post}`,`Post URL: ${p.postUrl}`,`Objective: ${p.objective}`,`Conversion location: ${p.conversionLocation}`,`Performance goal: ${p.performanceGoal}`,`CTA: ${p.cta}`,``,`👥 AUDIENCE`,`Locations: ${p.locations}`,`Age: ${p.age}; Gender: ${p.gender}`,`Ideal customer: ${p.audience}`,`Interest searches (verify in Meta): ${p.interests.join(', ')||'Broad'}`,p.interestNotice,``,`💵 BUDGET`,`Type: ${p.budgetType}`,`Total: $${p.totalBudget.toFixed(2)}`,`Average/day: $${p.averageDaily.toFixed(2)}`,`Duration: ${p.durationDays} days`,``,`📣 CREATIVE`,`Format: ${p.creative}`,`Placements: ${p.placements}`,`Channels: ${p.channels}`,`Caption suggestion:\n${p.caption}`,``,`📝 NOTES`,`Notes: ${p.notes}`,``,`⚠️ REVIEW`,...p.warnings,``,`PRE-PUBLISH CHECKLIST`,...p.checklist.map(s=>`☐ ${s}`),``,`Meta settings and targeting availability require manual verification.`];
  return lines.join('\n');
 }
 export default {
@@ -88,7 +89,23 @@ export default {
   const reference=`MAP-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${body.submissionId.slice(0,8).toUpperCase()}`;
   const report=formatReport(generate(body.data),reference);
   // Telegram sendDocument supports reports larger than sendMessage's 4096-character limit.
-  const payload=new FormData();payload.append('chat_id',env.TELEGRAM_CHAT_ID);payload.append('caption',`New Meta Ads Planner submission: ${reference}`);payload.append('document',new Blob([report],{type:'text/plain;charset=utf-8'}),`${reference}.txt`);
+  const payload=new FormData();payload.append('chat_id',env.TELEGRAM_CHAT_ID);payload.append('caption',[
+  '📋 NEW META ADS CAMPAIGN',
+  `Reference: ${reference}`,
+  `Business: ${body.data.client}`,
+  `Page: ${body.data.page}`,
+  `Objective: ${body.data.goal}`,
+  `Locations: ${body.data.locations}`,
+  `Audience: ${body.data.gender}, ${body.data.minAge}-${body.data.maxAge}`,
+  `Budget: $${body.data.budget} (${body.data.budgetType})`,
+  `Duration: ${body.data.days} days`,
+  `Orders: ${body.data.channels.join(', ')}`,
+  `Post: ${body.data.postUrl || 'New ad / not supplied'}`,
+  'Full campaign report attached.'
+].map((line, index) => {
+  const limits = [40, 45, 50, 50, 45, 60, 45, 50, 35, 60, 256, 40];
+  return String(line).slice(0, limits[index]);
+}).join('\n'));payload.append('document',new Blob([report],{type:'text/plain;charset=utf-8'}),`${reference}.txt`);
   let response,result;
   try{response=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`,{method:'POST',body:payload,signal:AbortSignal.timeout(12000)});result=await response.json()}catch{return json({error:'Delivery uncertain. Contact the campaign owner before retrying.'},502,origin)}
   if(!response.ok||!result.ok){console.error('Telegram delivery failed',response.status,result.error_code);return json({error:'Delivery failed. Contact the campaign owner.'},502,origin)}
