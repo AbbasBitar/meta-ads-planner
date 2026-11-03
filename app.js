@@ -1,4 +1,5 @@
-import {validate,calculateBudget,parsePostEntries} from './src/intake.js';
+import {validate,calculateBudget} from './src/intake.js';
+import {parsePostEntries} from './src/intake.js';
 const form=document.querySelector('#intake');
 const errors=document.querySelector('#errors');
 const preview=document.querySelector('#budgetPreview');
