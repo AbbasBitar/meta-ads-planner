@@ -25,3 +25,8 @@ test('message goal warns about missing messaging destinations',()=>{
 test('sales without website does not invent purchase tracking',()=>{
  assert.match(preflightCampaign({...base,goal:'sales'}).warnings.join(' '),/objective clarification/);
 });
+
+test('free-text newborn photography retains child-image consent reminder',()=>{
+ const result=preflightCampaign({...base,category:'Other',description:'Newborn photography studio'});
+ assert.match(result.checks.join(' '),/consent/);
+});
