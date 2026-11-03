@@ -56,7 +56,7 @@ for(const [k,v] of Object.entries(d)){
  if(d.channels.some(c=>!['Instagram Direct','WhatsApp','Website','Phone','In person'].includes(c)))return ['Invalid contact channel'];
  return validate(d);
 }
-function formatReport(p,ref,decision){
+export function formatReport(p,ref,decision){
  const lines=[
   'META ADS MANAGER — CONFIGURATION','Reference: '+ref,
   'Client: '+p.client+' | Page: '+p.page,
