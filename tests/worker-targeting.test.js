@@ -12,13 +12,14 @@ const base = {
 
 test('newborn photography omits unrelated wedding photography interest', () => {
   const report = generate(base);
-  assert.ok(report.interests.includes('Newborn photography'));
+  assert.ok(report.interests.includes('Baby shower'));
   assert.ok(!report.interests.includes('Wedding photography'));
 });
 
 test('generic photography retains broad photography suggestions', () => {
   const report = generate({...base, product:'Event photos', description:'Events', audience:'Adults'});
-  assert.ok(report.interests.includes('Wedding photography'));
+  assert.ok(report.interests.includes('Photography'));
+  assert.ok(!report.interests.includes('Wedding photography'));
 });
 
 test('explicit representative interests are preserved as unverified suggestions', () => {
@@ -30,6 +31,6 @@ test('explicit representative interests are preserved as unverified suggestions'
 
 test('non-photography categories keep their own suggestions', () => {
   const report = generate({...base, category:'Baby', product:'Newborn clothing'});
-  assert.ok(report.interests.includes('Baby products'));
+  assert.ok(report.interests.includes('Baby shower'));
   assert.ok(!report.interests.includes('Wedding photography'));
 });

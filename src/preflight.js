@@ -23,7 +23,7 @@ export function preflightCampaign(data) {
     warnings.push('Messages objective selected without Instagram Direct or WhatsApp. Verify a supported messaging destination.');
   if (data.goal === 'website' && data.channels?.includes('Website'))
     checks.push('Verify landing page, tracking, consent, and destination compatibility before publishing.');
-  if (data.category === 'Photography' && /newborn|baby|infant|child/i.test([data.product,data.audience].join(' ')))
+  if (/photo|portrait|تصوير|فوتوغراف/i.test([data.category,data.description,data.product].join(' ')) && /newborn|baby|infant|child|مولود|رضيع|طفل|أطفال/i.test([data.product,data.audience].join(' ')))
     checks.push('Verify consent to use images of children in advertising.');
   checks.push('Confirm available objectives, targeting interests, placements, and CTA inside Meta before publishing.');
   return { blocking, warnings, checks };

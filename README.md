@@ -61,3 +61,9 @@ See DEPLOY.md for production deployment and verification.
 
 GitHub Actions runs automated tests and validates the frontend build.
 Cloudflare Pages hosts production. GitHub Pages is not used.
+
+## Phase 3.2 targeting and rollout
+
+The representative enters a free-text business type/industry, product/service and intended customer. The private Worker uses a conservative multilingual keyword catalog to suggest candidate interest and demographic search terms; unknown industries fall back to the supplied product phrase. These suggestions are **not** a live Meta Ads targeting catalog, and no LLM or Meta Marketing API lookup is performed. Confirm each option and Advantage+ behavior in Ads Manager.
+
+The Telegram document uses Campaign → Ad Set → Ad sections and preserves the private objective decision. The frontend continues sending the legacy `category=Other` plus a free-text `description` field, so an older Worker can still accept new forms during a staged release. The new targeting/report features require deploying the Worker separately after merging. See DEPLOY.md. Do not mistake a passing Pages build for a Worker deployment.
