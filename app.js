@@ -140,6 +140,21 @@ function deliveryIsUnknown(response,result){
   if(response.status===503&&['submissions_paused','maintenance_configuration_invalid'].includes(result.code))return false;
   return result.status==='delivery_unknown'||response.status===409||(response.status>=500&&!(response.status===503&&/Security verification unavailable|Server not configured/i.test(result.error||''))&&!(response.status===502&&/Telegram rejected the delivery/i.test(result.error||'')));
 }
+function getData(){
+  const f = new FormData(form);
+
+  // Turnstile verification is sent separately, not as customer data.
+  f.delete('cf-turnstile-response');
+  if(f.get('post')!=='multiple')f.delete('postEntries');
+
+  return Object.fromEntries(
+    [...f.keys()]
+      .filter(k => k !== 'channels')
+      .map(k => [k, f.get(k)])
+      .concat([['channels', f.getAll('channels')]])
+  );
+}
+function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);}
 const multiSection=document.querySelector('#multiPostSection');
 const postCards=document.querySelector('#postCards');
 const addPost=document.querySelector('#addPost');
@@ -239,21 +254,6 @@ function syncPostFields(){
 }
 addPost.addEventListener('click',()=>{addPostRow();update();postRows.at(-1).urlInput.focus();});
 addPostRow();addPostRow();
-function getData(){
-  const f = new FormData(form);
-
-  // Turnstile verification is sent separately, not as customer data.
-  f.delete('cf-turnstile-response');
-  if(f.get('post')!=='multiple')f.delete('postEntries');
-
-  return Object.fromEntries(
-    [...f.keys()]
-      .filter(k => k !== 'channels')
-      .map(k => [k, f.get(k)])
-      .concat([['channels', f.getAll('channels')]])
-  );
-}
-function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);}
 function update(){syncPostFields();const x=getData();if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
 form.addEventListener('input',update);form.addEventListener('change',update);form.addEventListener('reset',()=>{postCards.replaceChildren();postRows=[];addPostRow();addPostRow();queueMicrotask(update);});update();
 function showErrors(messages,action){const all=[...messages];if(storageUnavailable)all.push('Browser storage is unavailable. Recovery across browser sessions cannot be guaranteed.');errors.replaceChildren();if(all.length){const ul=document.createElement('ul');for(const m of all){const li=document.createElement('li');li.textContent=m;ul.append(li);}errors.append(ul);}if(action){const button=document.createElement('button');button.type='button';button.textContent='The campaign owner checked Telegram and approved a new submission';button.addEventListener('click',action);errors.append(button);}}
