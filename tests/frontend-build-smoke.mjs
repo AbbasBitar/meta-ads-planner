@@ -19,7 +19,8 @@ test('built frontend assets and module exports remain usable', async () => {
   const intake = await import(pathToFileURL(resolve('dist/src/intake.js')).href);
   const planner = await import(pathToFileURL(resolve('dist/src/planner.js')).href);
   for (const name of ['required','validPostUrl','validate','calculateBudget']) {
-    assert.equal(typeof intake[name], 'function', name);
+    if (name === 'required') assert.ok(Array.isArray(intake[name]), 'required must be an array');
+    else assert.equal(typeof intake[name], 'function', name);
     assert.strictEqual(planner[name], intake[name], name);
   }
 });
