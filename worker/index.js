@@ -60,7 +60,7 @@ export function formatReport(p,ref,decision){
  const lines=[
   'META ADS — CONFIGURATION','Reference: '+ref,
   'Client: '+p.client+' | Page: '+p.page,
-  'Business: '+p.business+' | Product: '+p.product,
+  'Business: '+(p.description||p.business)+' | Product: '+p.product,
   '',
   'CAMPAIGN',
   'Tool: '+(p.platform==='manager'?'Meta Ads Manager':'Instagram Boost'),
