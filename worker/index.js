@@ -1,4 +1,5 @@
 import {validate,generate} from './planner.js';
+import {privateObjectiveDecision,formatPrivateDecision} from './private-recommendation.js';
 import {authorizeAccess,getAccessToken} from './access.js';
 
 const ALLOWED_ORIGINS = new Set([
@@ -112,7 +113,7 @@ export class SubmissionCoordinator {
    }catch{return coordinatorJson({error:'Security verification unavailable. Retry with a fresh verification token.'},503)}
    if(!verification.success||!['abbasbitar.github.io','ads-planner.teckhub.net'].includes(verification.hostname))return coordinatorJson({error:'Security verification failed. Complete a fresh verification and retry.'},403);
    const reference=`MAP-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${body.submissionId.slice(0,8).toUpperCase()}`;
-   const report=formatReport(generate(body.data),reference);
+   const report=formatReport(generate(body.data),reference)+'\n\n'+formatPrivateDecision(privateObjectiveDecision(body.data));
    const payload=new FormData();payload.append('chat_id',TELEGRAM_CHAT_ID);payload.append('caption',[
     '📋 NEW META ADS CAMPAIGN',`Reference: ${reference}`,`Business: ${body.data.client}`,`Page: ${body.data.page}`,`Objective: ${body.data.goal}`,`Locations: ${body.data.locations}`,`Audience: ${body.data.gender}, ${body.data.minAge}-${body.data.maxAge}`,`Budget: $${body.data.budget} (${body.data.budgetType})`,`Duration: ${body.data.days} days`,`Orders: ${body.data.channels.join(', ')}`,`Post: ${body.data.postUrl||'New ad / not supplied'}`,'Full campaign report attached.'
    ].map((line,index)=>String(line).slice(0,[40,45,50,50,45,60,45,50,35,60,256,40][index])).join('\n'));
