@@ -69,6 +69,31 @@ jobs:
           console.log(`Verified ${bundles.length} JavaScript bundle file(s); source imports are bundled.`);
           NODE
 
+      - name: Smoke test Worker runtime locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.156.2 dev --local --config tests/recommendation-bundle.wrangler.toml --port 8787 > "$RUNNER_TEMP/wrangler-dev.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --silent --fail --max-time 2 http://127.0.0.1:8787/ > "$RUNNER_TEMP/worker-response.json"; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then cat "$RUNNER_TEMP/wrangler-dev.log"; exit 1; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat "$RUNNER_TEMP/wrangler-dev.log"; exit 1; fi
+          node --input-type=module - "$RUNNER_TEMP/worker-response.json" <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const result=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          assert.deepEqual(result,{adapterStatus:'mapped',recommendationStatus:'recommended'});
+          console.log('Local Worker runtime returned expected recommendation statuses.');
+          NODE
+
+      - name: Smoke test built frontend modules
+        run: node --test tests/frontend-build-smoke.test.js
+
       - name: Upload dry-run bundle
         uses: actions/upload-artifact@v4
         with:
