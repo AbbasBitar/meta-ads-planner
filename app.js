@@ -1,4 +1,4 @@
-import {validate,calculateBudget} from './src/planner.js';
+import {validate,calculateBudget} from './src/intake.js';
 const form=document.querySelector('#intake');
 const errors=document.querySelector('#errors');
 const preview=document.querySelector('#budgetPreview');

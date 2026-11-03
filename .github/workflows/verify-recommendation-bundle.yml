@@ -1,0 +1,72 @@
+name: Verify private recommendation Worker bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Bundle and validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Bundle test Worker without deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          outdir="$RUNNER_TEMP/recommendation-worker-bundle"
+          npx --yes wrangler@4.156.2 deploy \
+            --config tests/recommendation-bundle.wrangler.toml \
+            --dry-run \
+            --outdir "$outdir"
+
+          test -d "$outdir"
+          node --input-type=module - "$outdir" <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const root = process.argv[2];
+          const files = [];
+          function walk(directory) {
+            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+              const file = path.join(directory, entry.name);
+              if (entry.isDirectory()) walk(file);
+              else files.push(file);
+            }
+          }
+          walk(root);
+          const bundles = files.filter((file) => /\.(?:m?js|cjs)$/.test(file));
+          if (bundles.length === 0) throw new Error('No JavaScript bundle was emitted.');
+          const source = bundles.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+          if (!source.includes('profile_visits') || !source.includes('Legacy profile goal maps')) {
+            throw new Error('Expected recommendation and legacy adapter code was not found in the bundle.');
+          }
+          if (/^\s*import\s/m.test(source)) {
+            throw new Error('Bundle contains a remaining static import; expected all modules to be bundled.');
+          }
+          console.log(`Verified ${bundles.length} JavaScript bundle file(s); source imports are bundled.`);
+          NODE
+
+      - name: Upload dry-run bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: recommendation-worker-dry-run-bundle
+          path: ${{ runner.temp }}/recommendation-worker-bundle/
+          if-no-files-found: error
+          retention-days: 3
