@@ -58,7 +58,7 @@ for(const [k,v] of Object.entries(d)){
 }
 export function formatReport(p,ref,decision){
  const lines=[
-  'META ADS MANAGER — CONFIGURATION','Reference: '+ref,
+  'META ADS — CONFIGURATION','Reference: '+ref,
   'Client: '+p.client+' | Page: '+p.page,
   'Business: '+p.business+' | Product: '+p.product,
   '',
