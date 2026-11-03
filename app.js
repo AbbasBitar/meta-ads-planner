@@ -157,6 +157,7 @@ function getData(){
 
   // Turnstile verification is sent separately, not as customer data.
   f.delete('cf-turnstile-response');
+  if(f.get('post')!=='multiple')f.delete('postEntries');
 
   return Object.fromEntries(
     [...f.keys()]
