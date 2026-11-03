@@ -91,7 +91,7 @@ function formatReport(p,ref,decision){
   ...p.warnings.slice(0,3),
   ...(p.notes?['Notes: '+p.notes]:[])
  ];
- return lines.join('\\n');
+ return lines.join('\n');
 }
 function canonicalize(value){
  if(Array.isArray(value))return value.map(canonicalize);
