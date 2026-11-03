@@ -140,19 +140,6 @@ function deliveryIsUnknown(response,result){
   if(response.status===503&&['submissions_paused','maintenance_configuration_invalid'].includes(result.code))return false;
   return result.status==='delivery_unknown'||response.status===409||(response.status>=500&&!(response.status===503&&/Security verification unavailable|Server not configured/i.test(result.error||''))&&!(response.status===502&&/Telegram rejected the delivery/i.test(result.error||'')));
 }
-function syncPostFields(){
-  const multiple=form.elements.post.value==='multiple';
-  const single=form.elements.post.value==='existing';
-  document.querySelector('#postEntriesLabel').hidden=!multiple;
-  form.elements.postUrl.closest('label').hidden=!single;
-  form.elements.postUrl.required=single;
-  form.elements.postEntries.required=multiple;
-  form.elements.budget.readOnly=multiple;
-  if(multiple){
-    const entries=parsePostEntries(form.elements.postEntries.value);
-    if(entries)form.elements.budget.value=(entries.reduce((sum,e)=>sum+Math.round(e.budget*100),0)/100).toFixed(2);
-  }
-}
 function getData(){
   const f = new FormData(form);
 
@@ -168,8 +155,107 @@ function getData(){
   );
 }
 function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);}
+const multiSection=document.querySelector('#multiPostSection');
+const postCards=document.querySelector('#postCards');
+const addPost=document.querySelector('#addPost');
+const postBudgetBreakdown=document.querySelector('#postBudgetBreakdown');
+let postRows=[];
+let nextPostRowId=0;
+function addPostRow(url='',budget=''){
+  if(postRows.length>=10)return;
+  const id=++nextPostRowId;
+  const card=document.createElement('div');
+  card.className='post-card';
+  const title=document.createElement('strong');
+  title.className='post-card-title';
+  const fields=document.createElement('div');
+  fields.className='post-card-fields';
+  const urlLabel=document.createElement('label');
+  urlLabel.textContent='Post / Reel URL';
+  const urlInput=document.createElement('input');
+  urlInput.type='url';urlInput.placeholder='https://www.instagram.com/p/...';
+  urlInput.maxLength=250;urlInput.inputMode='url';urlInput.value=url;
+  urlLabel.append(urlInput);
+  const budgetLabel=document.createElement('label');
+  budgetLabel.textContent='Budget (USD)';
+  const budgetInput=document.createElement('input');
+  budgetInput.type='number';budgetInput.min='0.01';budgetInput.max='100000';
+  budgetInput.step='0.01';budgetInput.placeholder='e.g. 20';budgetInput.value=budget;
+  budgetLabel.append(budgetInput);
+  const remove=document.createElement('button');
+  remove.type='button';remove.className='secondary-button remove-post';remove.textContent='Remove';
+  remove.addEventListener('click',()=>{
+    postRows=postRows.filter(row=>row.id!==id);
+    card.remove();refreshPostRows();update();
+  });
+  fields.append(urlLabel,budgetLabel,remove);
+  const feedback=document.createElement('p');feedback.className='post-card-feedback';
+  feedback.setAttribute('role','status');
+  card.append(title,fields,feedback);
+  postCards.append(card);
+  postRows.push({id,card,title,urlInput,budgetInput,remove,feedback});
+  refreshPostRows();
+}
+function refreshPostRows(){
+  postRows.forEach((row,i)=>{
+    row.title.textContent='Post '+(i+1);
+    row.remove.disabled=postRows.length<=2;
+    row.urlInput.required=form.elements.post.value==='multiple';
+    row.budgetInput.required=form.elements.post.value==='multiple';
+  });
+  addPost.disabled=postRows.length>=10;
+}
+function syncPostFields(){
+  const multiple=form.elements.post.value==='multiple';
+  const single=form.elements.post.value==='existing';
+  multiSection.hidden=!multiple;
+  document.querySelector('#singlePostLabel').hidden=!single;
+  form.elements.postUrl.required=single;
+  form.elements.budget.readOnly=multiple;
+  form.elements.postEntries.disabled=!multiple;
+  if(!multiple){
+    postBudgetBreakdown.hidden=true;
+    refreshPostRows();
+    return;
+  }
+  const seen=new Set();
+  let totalCents=0;
+  let allValid=postRows.length>=2;
+  const lines=[];
+  const breakdown=[];
+  postRows.forEach((row,i)=>{
+    const url=row.urlInput.value.trim();
+    const raw=row.budgetInput.value.trim();
+    const amount=Number(raw);
+    const validUrl=url.length>0 && /^https:\/\/(?:www\.|m\.|web\.)?(?:instagram\.com|facebook\.com)\/|^https:\/\/fb\.watch\//i.test(url);
+    const duplicate=seen.has(url)&&url!=='';
+    seen.add(url);
+    const validAmount=/^\d+(?:\.\d{1,2})?$/.test(raw)&&Number.isFinite(amount)&&amount>=0.01&&amount<=100000;
+    row.feedback.textContent=duplicate?'This URL is already added.':url&&!validUrl?'Use an HTTPS Instagram or Facebook post URL.':raw&&!validAmount?'Enter a valid USD amount (up to two decimals).':'';
+    row.urlInput.setCustomValidity(duplicate?'Duplicate post URL':url&&!validUrl?'Invalid post URL':'');
+    row.budgetInput.setCustomValidity(raw&&!validAmount?'Invalid USD budget':'');
+    if(!validUrl||duplicate||!validAmount)allValid=false;
+    if(validAmount)totalCents+=Math.round(amount*100);
+    lines.push(url+' | '+raw);
+    breakdown.push('Post '+(i+1)+': '+(validAmount?money(amount):'—'));
+  });
+  form.elements.postEntries.value=lines.join('\n');
+  form.elements.budget.value=allValid?(totalCents/100).toFixed(2):'';
+  postBudgetBreakdown.hidden=false;
+  postBudgetBreakdown.replaceChildren();
+  const heading=document.createElement('strong');
+  heading.textContent='Individual post budgets';
+  const list=document.createElement('ul');
+  breakdown.forEach(line=>{const li=document.createElement('li');li.textContent=line;list.append(li);});
+  const total=document.createElement('strong');
+  total.textContent=allValid?'Combined total: '+money(totalCents/100):'Complete all post URLs and budgets to calculate the total.';
+  postBudgetBreakdown.append(heading,list,total);
+  refreshPostRows();
+}
+addPost.addEventListener('click',()=>{addPostRow();update();postRows.at(-1).urlInput.focus();});
+addPostRow();addPostRow();
 function update(){syncPostFields();const x=getData();if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
-form.addEventListener('input',update);form.addEventListener('change',update);update();
+form.addEventListener('input',update);form.addEventListener('change',update);form.addEventListener('reset',()=>{postCards.replaceChildren();postRows=[];addPostRow();addPostRow();queueMicrotask(update);});update();
 function showErrors(messages,action){const all=[...messages];if(storageUnavailable)all.push('Browser storage is unavailable. Recovery across browser sessions cannot be guaranteed.');errors.replaceChildren();if(all.length){const ul=document.createElement('ul');for(const m of all){const li=document.createElement('li');li.textContent=m;ul.append(li);}errors.append(ul);}if(action){const button=document.createElement('button');button.type='button';button.textContent='The campaign owner checked Telegram and approved a new submission';button.addEventListener('click',action);errors.append(button);}}
 function showReconciliationInstructions(){
   const id=getUnresolvedSubmissionId();
