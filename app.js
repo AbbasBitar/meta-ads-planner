@@ -286,7 +286,7 @@ function initTurnstile(){if(!window.turnstile){setTimeout(initTurnstile,150);ret
 initTurnstile();
 form.addEventListener('submit',async e=>{
  e.preventDefault();status.textContent='';if(showReconciliationInstructions())return;showErrors([]);
- const data=getData(), problems=validate(data);
+ const data=getData(), problems=preflightCampaign(data).blocking;
  if(problems.length){showErrors(problems);errors.scrollIntoView();return;}
  const token=widgetId===null?'':window.turnstile?.getResponse(widgetId);
  if(!token){showErrors(['Complete the security verification before submitting.']);return;}
