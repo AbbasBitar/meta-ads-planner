@@ -44,4 +44,4 @@ jobs:
           test ! -e dist/src/legacy-objective-adapter.js
 
       - name: Smoke test built frontend modules
-        run: node --test tests/frontend-build-smoke.test.js
+        run: node --test tests/frontend-build-smoke.mjs
