@@ -25,7 +25,7 @@ test('explicit representative interests are preserved as unverified suggestions'
   const report = generate({...base, interests:'Local parents, Family activities'});
   assert.ok(report.interests.includes('Local parents'));
   assert.ok(report.interests.includes('Family activities'));
-  assert.match(report.interestNotice,/verify in Meta/i);
+  assert.match(report.interestNotice,/verified in Meta/i);
 });
 
 test('non-photography categories keep their own suggestions', () => {
