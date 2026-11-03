@@ -24,7 +24,32 @@ export function validPostUrl(value) {
   }
 }
 
+export function parsePostEntries(value) {
+  if (typeof value !== 'string' || value.length > 3000) return null;
+  const lines=value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if (lines.length < 2 || lines.length > 10) return null;
+  const entries=[];
+  const seen=new Set();
+  for (const line of lines) {
+    const parts=line.split('|').map(s=>s.trim());
+    if(parts.length!==2 || !validPostUrl(parts[0]))return null;
+    const amount=Number(parts[1]);
+    if(!/^\d+(?:\.\d{1,2})?$/.test(parts[1]) || !Number.isFinite(amount) || amount<0.01 || amount>100000)return null;
+    const normalized=new URL(parts[0]).href;
+    if(seen.has(normalized))return null;
+    seen.add(normalized);
+    entries.push({url:normalized,budget:amount});
+  }
+  if(entries.reduce((sum,e)=>sum+Math.round(e.budget*100),0)>10000000)return null;
+  return entries;
+}
 export function validate(x){
+  if (x.post === 'multiple') {
+    const entries=parsePostEntries(x.postEntries);
+    if(!entries)return ['Provide 2–10 unique valid HTTPS Instagram/Facebook post URLs, each followed by | and its USD budget (maximum $100,000 combined).'];
+    const sum=entries.reduce((total,e)=>total+Math.round(e.budget*100),0)/100;
+    if(Math.abs(Number(x.budget)-sum)>0.001)return ['Total budget must equal the sum of individual post budgets'];
+  }
   if (x.post === 'existing' && !String(x.postUrl ?? '').trim()) {
     return ['Post / Reel URL is required when using an existing post'];
   }
