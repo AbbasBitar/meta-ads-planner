@@ -59,3 +59,11 @@ test('unknown category does not invent demographics',()=>{
  assert.deepEqual(r.demographics,[]);
  assert.match(r.note,/not confirmed Meta targeting options/);
 });
+
+test('staged deployment accepts legacy Other category with free-text industry description',()=>{
+ const data={...base,category:'Other',description:'Car detailing',product:'Vehicle polishing',audience:'Vehicle owners'};
+ const r=generate(data);
+ assert.ok(r.interests.includes('Car care'));
+ assert.match(formatReport(r,'MAP-TEST',privateObjectiveDecision(data)),/Business: Car detailing/);
+ assert.deepEqual(checkSubmission({data,submissionId:'12345678-1234-4123-8123-123456789012',turnstileToken:'token'}),[]);
+});
