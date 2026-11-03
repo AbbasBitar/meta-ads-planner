@@ -143,6 +143,23 @@ test('Telegram caption contains the clipboard emoji, not mojibake', async () => 
   assert.equal(telegramCaption.includes('\u00f0\u0178\u201c\u2039'), false);
 });
 
+test('successful submission delivers the private recommendation in Telegram document only', async () => {
+  let report = '';
+  await withFetch(async (_url, options) => {
+    report = await options.body.get('document').text();
+    return Response.json({ ok: true });
+  }, async () => {
+    const env = environment(new MemoryKV());
+    const response = await worker.fetch(request('123e4567-e89b-42d3-a456-426614174010'), env, {});
+    const result = await response.json();
+    assert.equal(response.status, 200);
+    assert.deepEqual(Object.keys(result).sort(), ['reference', 'success']);
+  });
+  assert.match(report, /PRIVATE OBJECTIVE RECOMMENDATION/);
+  assert.match(report, /OUTCOME_TRAFFIC/);
+  assert.match(report, /Verify in Meta:/);
+});
+
 test('same submission ID retry returns the original success without redelivery', async () => {
   const kv = new MemoryKV();
   let telegramCalls = 0;
