@@ -34,7 +34,8 @@ export function recommendTargeting(x) {
   const productContext=[x.product,x.description].map(safeString).join(' ');
   const specific=profiles.filter(p=>p.match.test(productContext));
   const matched=specific.length?specific:profiles.filter(p=>p.match.test(context));
-  const interests=unique(matched.flatMap(p=>p.interests)).slice(0,6);
+  const fallback=safeString(x.product).trim().slice(0,80);
+  const interests=unique(matched.length?matched.flatMap(p=>p.interests):fallback?[fallback]:[]).slice(0,6);
   const demographics=unique(matched.flatMap(p=>p.demographics)).slice(0,3);
   const provided=unique(safeString(x.interests).split(',').map(s=>s.trim()).filter(Boolean)).slice(0,8);
   return {
