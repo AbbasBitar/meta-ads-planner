@@ -92,7 +92,7 @@ jobs:
           NODE
 
       - name: Smoke test built frontend modules
-        run: node --test tests/frontend-build-smoke.test.js
+        run: node --test tests/frontend-build-smoke.mjs
 
       - name: Upload dry-run bundle
         uses: actions/upload-artifact@v4
