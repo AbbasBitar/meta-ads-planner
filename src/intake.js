@@ -57,6 +57,7 @@ export function validate(x){
     return ['Enter a valid HTTPS Instagram or Facebook post URL'];
   }
  const errors=[];
+ if(typeof x.category!=='string'||!x.category.trim()||x.category.length>120) errors.push('Business type / industry is required (up to 120 characters)');
  for(const k of required) if(!String(x[k]??'').trim()) errors.push(`${k} is required`);
  const money=Number(x.budget), days=Number(x.days), min=Number(x.minAge), max=Number(x.maxAge);
  if(!Number.isFinite(money)||money<=0||money>100000) errors.push('Budget must be between $0.01 and $100,000');
