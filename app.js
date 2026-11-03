@@ -1,9 +1,11 @@
 import {validate,calculateBudget} from './src/intake.js';
 import {parsePostEntries} from './src/intake.js';
+import {preflightCampaign} from './src/preflight.js';
 const form=document.querySelector('#intake');
 const errors=document.querySelector('#errors');
 const preview=document.querySelector('#budgetPreview');
 const status=document.querySelector('#submitStatus');
+const preflight=document.querySelector('#preflight');
 const submit=document.querySelector('#submit');
 const config=window.PLANNER_CONFIG;
 let widgetId=null;
@@ -254,7 +256,18 @@ function syncPostFields(){
 }
 addPost.addEventListener('click',()=>{addPostRow();update();postRows.at(-1).urlInput.focus();});
 addPostRow();addPostRow();
-function update(){syncPostFields();const x=getData();if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
+function renderPreflight(x){
+  const result=preflightCampaign(x);
+  preflight.replaceChildren();
+  const title=document.createElement('strong');title.textContent='Campaign pre-publish review';preflight.append(title);
+  for(const [heading,items] of [['Required corrections',result.blocking],['Suggestions',result.warnings],['Verify in Meta',result.checks]]){
+    if(!items.length)continue;
+    const label=document.createElement('p');label.textContent=heading;preflight.append(label);
+    const list=document.createElement('ul');for(const item of items){const li=document.createElement('li');li.textContent=item;list.append(li);}preflight.append(list);
+  }
+  if(!result.blocking.length&&!result.warnings.length){const p=document.createElement('p');p.textContent='No preflight warnings detected. Meta availability and campaign approval still require verification.';preflight.append(p);}
+}
+function update(){syncPostFields();const x=getData();renderPreflight(x);if(Number(x.budget)>0&&Number(x.days)>0){const b=calculateBudget(x);preview.textContent=`Estimated total: ${money(b.total)} · Average daily: ${money(b.averageDaily)} · ${b.days} days`;}else preview.textContent='Enter a valid budget and duration.';}
 form.addEventListener('input',update);form.addEventListener('change',update);form.addEventListener('reset',()=>{postCards.replaceChildren();postRows=[];addPostRow();addPostRow();queueMicrotask(update);});update();
 function showErrors(messages,action){const all=[...messages];if(storageUnavailable)all.push('Browser storage is unavailable. Recovery across browser sessions cannot be guaranteed.');errors.replaceChildren();if(all.length){const ul=document.createElement('ul');for(const m of all){const li=document.createElement('li');li.textContent=m;ul.append(li);}errors.append(ul);}if(action){const button=document.createElement('button');button.type='button';button.textContent='The campaign owner checked Telegram and approved a new submission';button.addEventListener('click',action);errors.append(button);}}
 function showReconciliationInstructions(){
@@ -273,7 +286,7 @@ function initTurnstile(){if(!window.turnstile){setTimeout(initTurnstile,150);ret
 initTurnstile();
 form.addEventListener('submit',async e=>{
  e.preventDefault();status.textContent='';if(showReconciliationInstructions())return;showErrors([]);
- const data=getData(), problems=validate(data);
+ const data=getData(), problems=preflightCampaign(data).blocking;
  if(problems.length){showErrors(problems);errors.scrollIntoView();return;}
  const token=widgetId===null?'':window.turnstile?.getResponse(widgetId);
  if(!token){showErrors(['Complete the security verification before submitting.']);return;}
