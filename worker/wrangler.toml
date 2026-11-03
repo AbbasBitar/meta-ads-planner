@@ -18,4 +18,4 @@ new_sqlite_classes = ["SubmissionCoordinator"]
 
 [vars]
 ACCESS_AUD = "09495c2b0cec3bf5a62f506c6c14d46ba315ae22b100cefe14b231c59004eae3"
-SUBMISSIONS_PAUSED = "true"
+SUBMISSIONS_PAUSED = "false"
