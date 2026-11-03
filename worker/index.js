@@ -30,6 +30,7 @@ const allowed = [
   'platform',
   'post',
   'postUrl',
+  'postEntries',
   'goal',
   'destination',
   'channels',
@@ -49,14 +50,14 @@ const allowed = [
 for(const [k,v] of Object.entries(d)){
   if(!allowed.includes(k))return ['Unexpected field'];
   if(k==='channels'){if(!Array.isArray(v)||v.length>5||v.some(c=>!safeText(c,30)))return ['Invalid channels'];}
-  else if(!safeText(v,k==='notes'?1000:k==='audience'||k==='locations'?500:250))return ['Invalid field length'];
+  else if(!safeText(v,k==='postEntries'?3000:k==='notes'?1000:k==='audience'||k==='locations'?500:250))return ['Invalid field length'];
  }
- if(!['Photography','Jewelry','Clothing','Baby','Other'].includes(d.category)||!['manager','boost'].includes(d.platform)||!['new','existing'].includes(d.post)||!['profile','messages','sales','reach','engagement','website'].includes(d.goal)||!['daily','lifetime'].includes(d.budgetType)||!['All','Women','Men'].includes(d.gender)||!['Arabic','English','Arabic and English'].includes(d.language)||!['Single image','Video / Reel','Carousel','Need recommendation'].includes(d.creative))return ['Invalid selection'];
+ if(!['Photography','Jewelry','Clothing','Baby','Other'].includes(d.category)||!['manager','boost'].includes(d.platform)||!['new','existing','multiple'].includes(d.post)||!['profile','messages','sales','reach','engagement','website'].includes(d.goal)||!['daily','lifetime'].includes(d.budgetType)||!['All','Women','Men'].includes(d.gender)||!['Arabic','English','Arabic and English'].includes(d.language)||!['Single image','Video / Reel','Carousel','Need recommendation'].includes(d.creative))return ['Invalid selection'];
  if(d.channels.some(c=>!['Instagram Direct','WhatsApp','Website','Phone','In person'].includes(c)))return ['Invalid contact channel'];
  return validate(d);
 }
 function formatReport(p,ref){
- const lines=[`📋 META ADS PLANNER — NEW SUBMISSION`,`Reference: ${ref}`,`Client: ${p.client}`,`Page: ${p.page}`,`Instagram: ${p.handle}`,`Representative: ${p.representative}`,`Client reference: ${p.reference}`,``,`🎯 CAMPAIGN`,`Product: ${p.product}`,`Business description: ${p.description}`,`Tool: ${p.platform}`,`Ad source: ${p.post}`,`Post URL: ${p.postUrl}`,`Objective: ${p.objective}`,`Conversion location: ${p.conversionLocation}`,`Performance goal: ${p.performanceGoal}`,`CTA: ${p.cta}`,``,`👥 AUDIENCE`,`Locations: ${p.locations}`,`Age: ${p.age}; Gender: ${p.gender}`,`Ideal customer: ${p.audience}`,`Interest searches (verify in Meta): ${p.interests.join(', ')||'Broad'}`,p.interestNotice,``,`💵 BUDGET`,`Type: ${p.budgetType}`,`Total: $${p.totalBudget.toFixed(2)}`,`Average/day: $${p.averageDaily.toFixed(2)}`,`Duration: ${p.durationDays} days`,``,`📣 CREATIVE`,`Format: ${p.creative}`,`Placements: ${p.placements}`,`Channels: ${p.channels}`,`Caption suggestion:\n${p.caption}`,``,`📝 NOTES`,`Notes: ${p.notes}`,``,`⚠️ REVIEW`,...p.warnings,``,`PRE-PUBLISH CHECKLIST`,...p.checklist.map(s=>`☐ ${s}`),``,`Meta settings and targeting availability require manual verification.`];
+ const lines=[`📋 META ADS PLANNER — NEW SUBMISSION`,`Reference: ${ref}`,`Client: ${p.client}`,`Page: ${p.page}`,`Instagram: ${p.handle}`,`Representative: ${p.representative}`,`Client reference: ${p.reference}`,``,`🎯 CAMPAIGN`,`Product: ${p.product}`,`Business description: ${p.description}`,`Tool: ${p.platform}`,`Ad source: ${p.post}`,`Post URL: ${p.postUrl}`, ...(p.postEntries.length?[`Multiple existing posts (individual ${p.budgetType} budgets):`,...p.postEntries.map((entry,i)=>`${i+1}. ${entry.url} — ${entry.budget.toFixed(2)}`)]:[]),`Objective: ${p.objective}`,`Conversion location: ${p.conversionLocation}`,`Performance goal: ${p.performanceGoal}`,`CTA: ${p.cta}`,``,`👥 AUDIENCE`,`Locations: ${p.locations}`,`Age: ${p.age}; Gender: ${p.gender}`,`Ideal customer: ${p.audience}`,`Interest searches (verify in Meta): ${p.interests.join(', ')||'Broad'}`,p.interestNotice,``,`💵 BUDGET`,`Type: ${p.budgetType}`,`Total: $${p.totalBudget.toFixed(2)}`,`Average/day: $${p.averageDaily.toFixed(2)}`,`Duration: ${p.durationDays} days`,``,`📣 CREATIVE`,`Format: ${p.creative}`,`Placements: ${p.placements}`,`Channels: ${p.channels}`,`Caption suggestion:\n${p.caption}`,``,`📝 NOTES`,`Notes: ${p.notes}`,``,`⚠️ REVIEW`,...p.warnings,``,`PRE-PUBLISH CHECKLIST`,...p.checklist.map(s=>`☐ ${s}`),``,`Meta settings and targeting availability require manual verification.`];
  return lines.join('\n');
 }
 function canonicalize(value){
@@ -115,7 +116,7 @@ export class SubmissionCoordinator {
    const reference=`MAP-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${body.submissionId.slice(0,8).toUpperCase()}`;
    const report=formatReport(generate(body.data),reference)+'\n\n'+formatPrivateDecision(privateObjectiveDecision(body.data));
    const payload=new FormData();payload.append('chat_id',TELEGRAM_CHAT_ID);payload.append('caption',[
-    '📋 NEW META ADS CAMPAIGN',`Reference: ${reference}`,`Business: ${body.data.client}`,`Page: ${body.data.page}`,`Objective: ${body.data.goal}`,`Locations: ${body.data.locations}`,`Audience: ${body.data.gender}, ${body.data.minAge}-${body.data.maxAge}`,`Budget: $${body.data.budget} (${body.data.budgetType})`,`Duration: ${body.data.days} days`,`Orders: ${body.data.channels.join(', ')}`,`Post: ${body.data.postUrl||'New ad / not supplied'}`,'Full campaign report attached.'
+    '📋 NEW META ADS CAMPAIGN',`Reference: ${reference}`,`Business: ${body.data.client}`,`Page: ${body.data.page}`,`Objective: ${body.data.goal}`,`Locations: ${body.data.locations}`,`Audience: ${body.data.gender}, ${body.data.minAge}-${body.data.maxAge}`,`Budget: $${body.data.budget} (${body.data.budgetType})`,`Duration: ${body.data.days} days`,`Orders: ${body.data.channels.join(', ')}`,`Post: ${body.data.post==='multiple'?`${body.data.postEntries.split(/\\r?\\n/).filter(Boolean).length} existing posts (see report)`:body.data.postUrl||'New ad / not supplied'}`,'Full campaign report attached.'
    ].map((line,index)=>String(line).slice(0,[40,45,50,50,45,60,45,50,35,60,256,40][index])).join('\n'));
    payload.append('document',new Blob([report],{type:'text/plain;charset=utf-8'}),`${reference}.txt`);
    const sending={...submission,status:'sending',reference,updatedAt:Date.now()};
