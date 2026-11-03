@@ -48,3 +48,14 @@ test('unresolved sales objective remains explicitly unconfirmed',()=>{
  assert.match(report,/Objective: Needs confirmation in Meta/);
  assert.match(report,/Objective clarification:/);
 });
+
+test('unrelated words do not accidentally trigger automotive or jewelry targeting',()=>{
+ const r=recommendTargeting({...base,category:'Home services',product:'Carpet cleaning for spring',audience:'Homeowners'});
+ assert.ok(!r.interests.includes('Car care'));
+ assert.ok(!r.interests.includes('Jewelry'));
+});
+test('unknown category does not invent demographics',()=>{
+ const r=recommendTargeting({...base,category:'Custom industrial service',product:'Industrial calibration',audience:'Factory operators'});
+ assert.deepEqual(r.demographics,[]);
+ assert.match(r.note,/not confirmed Meta targeting options/);
+});
