@@ -1,3 +1,0 @@
-name = "recommendation-bundle-verification"
-main = "./recommendation-bundle-worker.js"
-compatibility_date = "2026-11-03"

@@ -1,1 +1,68 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Secure customer intake for private Telegram campaign review"><title>Meta Ads Planner</title><link rel="stylesheet" href="styles.css"></head><body><header><div class="wrap"><span class="eyebrow">CAMPAIGN WORKSPACE</span><h1>Meta Ads Planner</h1><p>Collect customer requirements and submit them privately for campaign review.</p></div></header><main class="wrap"><div class="notice">🔒 Submissions are sent securely to the campaign owner through Cloudflare and Telegram. No reports are displayed to the representative. Do not enter payment details, passwords or unnecessary personal information.</div><form id="intake"><section><h2>1 · Client & page information</h2><div class="grid"><label>Customer / business owner name *<input name="client" required autocomplete="off" placeholder="Sarah Ahmad"></label><label>Page name *<input name="page" required placeholder="Sarah Photography"></label><label>Instagram username<input name="handle" placeholder="@sarahphotography"></label><label>Customer service representative *<input name="representative" required placeholder="Assigned team member"></label><label>Client reference<input name="reference" placeholder="CLIENT-001"></label></div></section><section><h2>2 · Business & campaign</h2><div class="grid"><input type="hidden" name="category" value="Other"><label>Business type / industry *<input name="description" required maxlength="120" placeholder="e.g. Car detailing, online tutoring, bakery"></label><label>Product or service *<input name="product" required placeholder="Newborn photography sessions"></label><label>Advertising tool<select name="platform"><option value="manager">Meta Ads Manager</option><option value="boost">Instagram Boost</option></select></label><label>Ad source<select name="post"><option value="new">Create a new ad</option><option value="existing">Use an existing post</option><option value="multiple">Boost multiple existing posts</option></select></label><label id="singlePostLabel">Post / Reel URL (required for existing posts)<input type="url" name="postUrl" id="postUrl" placeholder="https://www.instagram.com/p/..." maxlength="250" inputmode="url"></label><div id="multiPostSection" class="multi-post-section" hidden><div class="multi-post-heading"><strong>Existing posts and individual budgets</strong><button type="button" id="addPost" class="secondary-button">+ Add post</button></div><p class="small">Add each post URL and its USD budget. Each post is boosted separately.</p><div id="postCards"></div><label class="visually-hidden" for="postEntries">Post allocations</label><textarea name="postEntries" id="postEntries" hidden aria-hidden="true" tabindex="-1"></textarea></div><label>Primary goal<select name="goal"><option value="profile">Instagram profile visits / followers</option><option value="messages">Messages and inquiries</option><option value="sales">Sales or bookings</option><option value="reach">Awareness / reach</option><option value="engagement">Post engagement</option><option value="website">Website traffic</option></select></label><label>Website URL (required for website traffic)<input name="destination" placeholder="https://example.com" inputmode="url"></label></div><fieldset><legend>How do customers contact or order? *</legend><div class="checks"><label><input type="checkbox" name="channels" value="Instagram Direct" checked> Instagram Direct</label><label><input type="checkbox" name="channels" value="WhatsApp"> WhatsApp</label><label><input type="checkbox" name="channels" value="Website"> Website</label><label><input type="checkbox" name="channels" value="Phone"> Phone</label><label><input type="checkbox" name="channels" value="In person"> In person</label></div></fieldset></section><section><h2>3 · Audience</h2><label>Target cities / countries *<textarea name="locations" required placeholder="Saida, Tyre, Nabatieh, Beirut"></textarea></label><div class="grid"><label>Minimum age<input type="number" name="minAge" min="18" max="65" value="23" required></label><label>Maximum age<input type="number" name="maxAge" min="18" max="65" value="45" required></label><label>Gender<select name="gender"><option value="All">All</option><option value="Women">Women</option><option value="Men">Men</option></select></label><label>Interest ideas (comma-separated)<input name="interests" placeholder="Parenting, Newborn photography"></label></div><label>Describe ideal customer *<textarea name="audience" required placeholder="Parents and expecting families seeking newborn photography"></textarea></label></section><section><h2>4 · Budget & duration</h2><div class="grid"><label>Budget type<select name="budgetType" id="budgetType"><option value="lifetime">Lifetime / total</option><option value="daily">Daily</option></select></label><label>Budget in USD<input type="number" name="budget" id="budget" min="0.01" max="100000" step="0.01" value="20" required></label><label>Duration in days<input type="number" name="days" id="days" min="1" max="365" step="1" value="4" required></label></div><div id="postBudgetBreakdown" class="post-budget-breakdown" hidden></div><div id="budgetPreview" class="budget"></div></section><section><h2>5 · Creative & campaign details</h2><div class="grid"><label>Creative format<select name="creative"><option value="Single image">Single image</option><option value="Video / Reel">Video / Reel</option><option value="Carousel">Carousel</option><option value="Need recommendation">Need recommendation</option></select></label><label>Caption language<select name="language"><option>Arabic</option><option>English</option><option>Arabic and English</option></select></label></div><label>Offers, prices, booking instructions and internal notes<textarea name="notes" placeholder="Any restrictions or special customer requirements"></textarea></label></section><section id="preflight" aria-live="polite" aria-label="Campaign pre-publish review"></section><div id="errors" role="alert" aria-live="polite"></div><div id="turnstile" class="turnstile-container"></div><button id="submit" class="primary" type="submit">Submit configuration for review</button><p id="submitStatus" role="status" aria-live="polite"></p></form></main><footer class="wrap">Meta Ads Planner · Secure submission portal · Not affiliated with Meta</footer><script src="config.js"></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script><script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
+  <meta name="theme-color" content="#f6f7f4">
+  <title>Meta Ads Planner — Campaign brief</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="./" aria-label="Meta Ads Planner home"><span class="brand-mark" aria-hidden="true">M</span><span>Meta Ads Planner</span></a>
+      <span class="header-note">A thoughtful campaign starts with a clear brief.</span>
+    </div>
+  </header>
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">CAMPAIGN BRIEF</p>
+      <h1 id="page-title">Plan your next campaign.</h1>
+      <p>Share the details below to create a structured prompt. Review the brief, then paste it into ChatGPT for campaign recommendations.</p>
+    </section>
+    <form id="campaign-form" novalidate>
+      <section class="card" aria-labelledby="business-heading">
+        <div class="section-heading"><span class="step">01</span><div><h2 id="business-heading">Your business</h2><p>Tell us about the page and what you want to promote.</p></div></div>
+        <div class="field-grid">
+          <label>Page name <span class="required">*</span><input name="pageName" autocomplete="organization" required placeholder="e.g. Cedar & Stone Bakery"></label>
+          <label>Instagram or Facebook handle / page URL <span class="required">*</span><input name="pageUrl" required placeholder="@yourpage or https://facebook.com/yourpage"></label>
+          <label class="span-2">Business description <span class="required">*</span><textarea name="businessDescription" required rows="3" placeholder="What does your business do? Who does it serve?"></textarea></label>
+          <label class="span-2">Products or services to advertise <span class="required">*</span><textarea name="products" required rows="3" placeholder="List the products, services, or offers you want to promote"></textarea></label>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="audience-heading">
+        <div class="section-heading"><span class="step">02</span><div><h2 id="audience-heading">Audience & creative</h2><p>Share your preferred reach and the post you want to use.</p></div></div>
+        <div class="field-grid">
+          <label class="span-2">Target locations <span class="required">*</span><textarea name="locations" required rows="2" placeholder="Countries or cities, e.g. Lebanon; Beirut and Saida"></textarea></label>
+          <label>Minimum age <span class="required">*</span><input name="minAge" type="number" min="18" max="65" step="1" value="18" required inputmode="numeric"></label>
+          <label>Maximum age <span class="required">*</span><input name="maxAge" type="number" min="18" max="65" step="1" value="65" required inputmode="numeric"></label>
+          <label>Gender <span class="required">*</span><select name="gender" required><option>All</option><option>Women</option><option>Men</option></select></label>
+          <label>Existing Instagram or Facebook post URL <span class="optional">Optional</span><input name="postUrl" type="url" placeholder="https://www.instagram.com/p/..."></label>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="budget-heading">
+        <div class="section-heading"><span class="step">03</span><div><h2 id="budget-heading">Budget & ordering</h2><p>Set your total spend and how customers place orders.</p></div></div>
+        <div class="field-grid">
+          <label>Total advertising budget (USD) <span class="required">*</span><div class="input-prefix"><span aria-hidden="true">$</span><input name="budget" type="number" min="0.01" step="0.01" required placeholder="e.g. 300" inputmode="decimal"></div></label>
+          <label>Campaign duration (days) <span class="required">*</span><input name="duration" type="number" min="1" step="1" required placeholder="e.g. 14" inputmode="numeric"></label>
+          <fieldset class="span-2"><legend>How do customers place orders? <span class="required">*</span></legend><div class="choice-grid"><label class="choice"><input type="radio" name="orderingChannel" value="Instagram Direct" required><span>Instagram Direct</span></label><label class="choice"><input type="radio" name="orderingChannel" value="WhatsApp"><span>WhatsApp</span></label><label class="choice"><input type="radio" name="orderingChannel" value="Website"><span>Website</span></label><label class="choice"><input type="radio" name="orderingChannel" value="Phone"><span>Phone</span></label><label class="choice"><input type="radio" name="orderingChannel" value="In person"><span>In person</span></label></div></fieldset>
+        </div>
+        <div class="budget-summary" aria-live="polite"><div><span>Total campaign budget</span><strong id="total-budget">—</strong></div><div><span>Estimated daily budget</span><strong id="daily-budget">Enter a budget and duration</strong></div></div>
+      </section>
+      <div id="form-errors" class="form-errors" role="alert" aria-live="polite" hidden></div>
+      <div class="form-actions"><button class="button button-primary" type="submit">Generate ChatGPT Prompt <span aria-hidden="true">↗</span></button><p>Your campaign information stays in this page until you copy and paste it.</p></div>
+    </form>
+    <section id="prompt-panel" class="card prompt-panel" aria-labelledby="prompt-heading" hidden>
+      <div class="prompt-title"><div><p class="eyebrow">READY TO ANALYZE</p><h2 id="prompt-heading">Your campaign prompt</h2></div><span class="ready-badge">Generated</span></div>
+      <p class="prompt-help">Review the prompt, copy it, then paste and submit it inside ChatGPT.</p>
+      <label class="visually-hidden" for="generated-prompt">Generated ChatGPT campaign analysis prompt</label>
+      <textarea id="generated-prompt" rows="24" readonly spellcheck="false"></textarea>
+      <div class="prompt-actions"><button id="copy-prompt" class="button button-primary" type="button">Copy Prompt</button><a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT <span aria-hidden="true">↗</span></a><span id="copy-status" role="status" aria-live="polite"></span></div>
+      <p class="privacy-note">ChatGPT opens separately. This page cannot insert your prompt into a ChatGPT conversation; paste and submit it there yourself.</p>
+    </section>
+  </main>
+  <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

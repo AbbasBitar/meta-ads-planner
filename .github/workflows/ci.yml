@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   validate:
-    name: CI / Tests, build, privacy, and recovery
+    name: CI / Tests and static frontend build
     runs-on: ubuntu-latest
 
     steps:
@@ -37,11 +37,8 @@ jobs:
         run: |
           test -f dist/index.html
           test -f dist/app.js
-          test -f dist/config.js
           test -f dist/styles.css
-          test -f dist/src/planner.js
-          test ! -e dist/src/recommendation.js
-          test ! -e dist/src/legacy-objective-adapter.js
+          test -f dist/src/intake.js
 
       - name: Smoke test built frontend modules
         run: node --test tests/frontend-build-smoke.mjs
