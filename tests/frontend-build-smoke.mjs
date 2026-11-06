@@ -1,26 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
-test('built frontend assets and module exports remain usable', async () => {
-  for (const path of ['index.html','app.js','config.js','styles.css','src/intake.js','src/planner.js']) {
-    assert.ok(existsSync('dist/'+path), 'Missing dist/'+path);
+test('build contains only the usable v2 frontend assets', () => {
+  for (const path of ['dist/index.html', 'dist/app.js', 'dist/styles.css', 'dist/src/intake.js']) {
+    assert.ok(existsSync(path), `Missing ${path}`);
   }
-  for (const path of ['src/recommendation.js','src/legacy-objective-adapter.js']) {
-    assert.ok(!existsSync('dist/'+path), 'Private module exposed: '+path);
-  }
-  const html = readFileSync('dist/index.html','utf8');
-  assert.match(html, /app\.js/);
-  assert.match(html, /config\.js/);
-  const app = readFileSync('dist/app.js','utf8');
-  assert.match(app, /from ['"]\.\/src\/intake\.js['"]/);
-  const intake = await import(pathToFileURL(resolve('dist/src/intake.js')).href);
-  const planner = await import(pathToFileURL(resolve('dist/src/planner.js')).href);
-  for (const name of ['required','validPostUrl','validate','calculateBudget']) {
-    if (name === 'required') assert.ok(Array.isArray(intake[name]), 'required must be an array');
-    else assert.equal(typeof intake[name], 'function', name);
-    assert.strictEqual(planner[name], intake[name], name);
-  }
+  assert.deepEqual(readdirSync('dist').sort(), ['app.js', 'index.html', 'src', 'styles.css']);
+  assert.deepEqual(readdirSync('dist/src').sort(), ['intake.js']);
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /campaign-form/);
+  assert.match(html, /https:\/\/chatgpt\.com\//);
+  const app = readFileSync('dist/app.js', 'utf8');
+  assert.match(app, /generateChatGPTPrompt/);
+  assert.doesNotMatch(app, /fetch\s*\(|\/api\/submit|telegram|openrouter/i);
 });

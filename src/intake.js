@@ -1,70 +1,134 @@
-export const required = ['client','page','representative','product','locations','audience'];
-export function validPostUrl(value) {
-  if (typeof value !== 'string' || value.length > 250) return false;
+export const ORDERING_CHANNELS = Object.freeze([
+  'Instagram Direct',
+  'WhatsApp',
+  'Website',
+  'Phone',
+  'In person'
+]);
 
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase();
+const REQUIRED_FIELDS = Object.freeze([
+  ['pageName', 'Page name'],
+  ['pageUrl', 'Instagram/Facebook handle or page URL'],
+  ['businessDescription', 'Business description'],
+  ['products', 'Products or services'],
+  ['locations', 'Target locations']
+]);
 
-    if (url.protocol !== 'https:' ||
-        url.username || url.password ||
-        url.port || !['www.instagram.com', 'instagram.com', 'm.instagram.com',
-                      'www.facebook.com', 'facebook.com', 'm.facebook.com',
-                      'web.facebook.com', 'fb.watch'].includes(host)) {
-      return false;
+export function calculateBudget(formData) {
+  const total = Number(formData.budget);
+  const duration = Number(formData.duration);
+  return {
+    total,
+    duration,
+    daily: total / duration
+  };
+}
+
+export function validateCampaign(formData) {
+  const problems = [];
+  for (const [field, label] of REQUIRED_FIELDS) {
+    if (typeof formData[field] !== 'string' || !formData[field].trim()) {
+      problems.push({ field, message: `${label} is required.` });
     }
+  }
 
-    if (host === 'fb.watch') {
-      return /^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+  const minAge = Number(formData.minAge);
+  const maxAge = Number(formData.maxAge);
+  if (!['All', 'Women', 'Men'].includes(formData.gender)) {
+    problems.push({ field: 'gender', message: 'Choose All, Women, or Men for the gender preference.' });
+  }
+  if (!Number.isInteger(minAge) || minAge < 18 || minAge > 65) {
+    problems.push({ field: 'minAge', message: 'Minimum age must be a whole number from 18 to 65.' });
+  }
+  if (!Number.isInteger(maxAge) || maxAge < 18 || maxAge > 65) {
+    problems.push({ field: 'maxAge', message: 'Maximum age must be a whole number from 18 to 65.' });
+  }
+  if (Number.isInteger(minAge) && Number.isInteger(maxAge) && minAge >= 18 && maxAge <= 65 && maxAge < minAge) {
+    problems.push({ field: 'maxAge', message: 'Maximum age must be at least the minimum age.' });
+  }
+
+  const budget = Number(formData.budget);
+  if (!Number.isFinite(budget) || budget <= 0) {
+    problems.push({ field: 'budget', message: 'Total advertising budget must be greater than $0.' });
+  }
+  const duration = Number(formData.duration);
+  if (!Number.isInteger(duration) || duration < 1) {
+    problems.push({ field: 'duration', message: 'Campaign duration must be at least 1 whole day.' });
+  }
+
+  if (!ORDERING_CHANNELS.includes(formData.orderingChannel)) {
+    problems.push({ field: 'orderingChannel', message: 'Choose how customers place orders.' });
+  }
+
+  const postUrl = String(formData.postUrl ?? '').trim();
+  if (postUrl) {
+    try {
+      const url = new URL(postUrl);
+      const allowedHost = /(^|\.)(instagram\.com|facebook\.com|fb\.watch)$/i.test(url.hostname);
+      if (url.protocol !== 'https:' || !allowedHost || url.username || url.password || url.port) {
+        throw new Error('Unsupported post URL');
+      }
+    } catch {
+      problems.push({ field: 'postUrl', message: 'Enter a valid HTTPS Instagram or Facebook post URL, or leave it blank.' });
     }
-
-    return url.pathname.length > 1 && url.pathname !== '//';
-  } catch {
-    return false;
   }
+
+  return problems;
 }
 
-export function parsePostEntries(value) {
-  if (typeof value !== 'string' || value.length > 3000) return null;
-  const lines=value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  if (lines.length < 2 || lines.length > 10) return null;
-  const entries=[];
-  const seen=new Set();
-  for (const line of lines) {
-    const parts=line.split('|').map(s=>s.trim());
-    if(parts.length!==2 || !validPostUrl(parts[0]))return null;
-    const amount=Number(parts[1]);
-    if(!/^\d+(?:\.\d{1,2})?$/.test(parts[1]) || !Number.isFinite(amount) || amount<0.01 || amount>100000)return null;
-    const normalized=new URL(parts[0]).href;
-    if(seen.has(normalized))return null;
-    seen.add(normalized);
-    entries.push({url:normalized,budget:amount});
-  }
-  if(entries.reduce((sum,e)=>sum+Math.round(e.budget*100),0)>10000000)return null;
-  return entries;
+function promptValue(value) {
+  return JSON.stringify(String(value ?? '').trim());
 }
-export function validate(x){
-  if (x.post === 'multiple') {
-    const entries=parsePostEntries(x.postEntries);
-    if(!entries)return ['Provide 2–10 unique valid HTTPS Instagram/Facebook post URLs, each followed by | and its USD budget (maximum $100,000 combined).'];
-    const sum=entries.reduce((total,e)=>total+Math.round(e.budget*100),0)/100;
-    if(Math.abs(Number(x.budget)-sum)>0.001)return ['Total budget must equal the sum of individual post budgets'];
-  }
-  if (x.post === 'existing' && !String(x.postUrl ?? '').trim()) {
-    return ['Post / Reel URL is required when using an existing post'];
-  }
-  if (String(x.postUrl ?? '').trim() && !validPostUrl(x.postUrl.trim())) {
-    return ['Enter a valid HTTPS Instagram or Facebook post URL'];
-  }
- const errors=[];
- if(typeof x.category!=='string'||!x.category.trim()||x.category.length>120) errors.push('Business type / industry is required (up to 120 characters)');
- for(const k of required) if(!String(x[k]??'').trim()) errors.push(`${k} is required`);
- const money=Number(x.budget), days=Number(x.days), min=Number(x.minAge), max=Number(x.maxAge);
- if(!Number.isFinite(money)||money<=0||money>100000) errors.push('Budget must be between $0.01 and $100,000');
- if(!Number.isInteger(days)||days<1||days>365) errors.push('Duration must be 1–365 days');
- if(!Number.isInteger(min)||!Number.isInteger(max)||min<18||max>65||min>max) errors.push('Age range must be 18–65, with minimum <= maximum');
- if(!Array.isArray(x.channels)||!x.channels.length) errors.push('Choose at least one contact channel');
- if(x.goal==='website'&&!/^https:\/\/[^\s.]+\.[^\s]+$/i.test(x.destination||'')) errors.push('Website traffic requires a valid HTTPS website URL');
- return errors;
+
+export function generateChatGPTPrompt(formData) {
+  const { total, daily, duration } = calculateBudget(formData);
+  const postUrl = String(formData.postUrl ?? '').trim() || 'Not provided';
+  const fields = [
+    ['Page name', formData.pageName],
+    ['Instagram/Facebook handle or page URL', formData.pageUrl],
+    ['Business description', formData.businessDescription],
+    ['Products or services advertised', formData.products],
+    ['Target locations', formData.locations],
+    ['Minimum age preference', formData.minAge],
+    ['Maximum age preference', formData.maxAge],
+    ['Gender preference', formData.gender],
+    ['Existing Instagram/Facebook post URL', postUrl],
+    ['Total advertising budget (USD)', `$${total.toFixed(2)}`],
+    ['Estimated daily budget (USD)', `$${daily.toFixed(2)} per day`],
+    ['Campaign duration', `${duration} days`],
+    ['How customers place orders', formData.orderingChannel]
+  ];
+
+  return [
+    'Act as an experienced Meta Ads specialist. Analyze the campaign brief below and provide practical, clearly explained recommendations.',
+    '',
+    'CAMPAIGN INFORMATION',
+    ...fields.map(([label, value]) => `- ${label}: ${promptValue(value)}`),
+    '',
+    'Please cover each item:',
+    '1. Business and product analysis, including useful strengths and information gaps.',
+    '2. Likely customer segments and the needs or behaviors that make them relevant.',
+    '3. Recommended target audience, with a clear rationale tied to the brief.',
+    '4. Suggested targeting interests, separating verified options currently available in Meta Ads Manager from unverified ideas that require confirmation.',
+    '5. Recommended campaign objective, based on how customers actually place orders and the desired action.',
+    '6. Recommended gender and age range; explain whether to keep or adjust the supplied preferences.',
+    '7. Geographic targeting using the supplied locations; call out any locations that need clarification.',
+    '8. Whether to start with broad or interest-based targeting, and why.',
+    '9. Recommended messaging or conversion destination that matches the ordering channel.',
+    '10. A suitable call to action (CTA).',
+    '11. Daily and total budget recommendations. Preserve the supplied total budget and duration unless you clearly explain a suggested alternative.',
+    '12. Campaign duration and any pacing considerations.',
+    '13. A concise campaign configuration table with columns for campaign, ad set, and ad settings.',
+    '14. A practical pre-publish checklist.',
+    '15. Relevant assumptions, risks, missing details, and what should be verified before launch.',
+    '',
+    'GUIDANCE',
+    '- Research online when useful, and cite sources for claims that depend on current information.',
+    '- Distinguish verified facts from assumptions and recommendations.',
+    '- Do not invent Meta targeting interests. Verify current availability where possible; mark every unverified interest as a suggestion that must be confirmed in Meta Ads Manager.',
+    '- Do not guarantee sales, leads, reach, or any other advertising result.',
+    '- The post URL is reference information only. Do not claim to have inspected the post or its contents unless you actually retrieved and reviewed them.',
+    '- Recommend campaign objectives and destinations based on how customers actually place orders, not on a generic default.',
+    '- If an important detail is missing, state the assumption or ask a focused follow-up question instead of making up a fact.'
+  ].join('\n');
 }
-export function calculateBudget(x){const amount=Number(x.budget),days=Number(x.days);return {total:x.budgetType==='daily'?amount*days:amount,averageDaily:x.budgetType==='daily'?amount:amount/days,days};}
