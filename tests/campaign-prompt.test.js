@@ -94,3 +94,40 @@ test('the small-screen layout collapses fields and choices responsively', () => 
   assert.match(css, /\.field-grid\{grid-template-columns:1fr;gap:0\}/);
   assert.match(css, /\.choice-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
 });
+
+test('Instagram Boost prompt stays in Boost workflow and checks message destination', () => {
+  const campaign = {
+    ...validCampaign,
+    creationMethod: 'Instagram Boost',
+    adGoal: 'More messages',
+    pageName: 'hurea_lb',
+    products: 'Women sleepwear',
+    locations: 'Nabatieh',
+    minAge: 18,
+    maxAge: 35,
+    gender: 'Women',
+    budget: 100,
+    duration: 10,
+    orderingChannel: 'Instagram Direct'
+  };
+  assert.deepEqual(validateCampaign(campaign), []);
+  const prompt = generateChatGPTPrompt(campaign);
+  for (const value of ['Instagram Boost', 'More messages', 'Instagram Direct', 'Boost Reel', 'ONE SCREEN AT A TIME', 'More profile visits', 'governorate', 'Advantage+', 'interests']) {
+    assert.ok(prompt.includes(value), value);
+  }
+  assert.match(prompt, /not merely the Instagram profile/);
+  assert.match(prompt, /unverified until visibly available/);
+});
+
+test('unsupported creation method and goal are rejected', () => {
+  const problems = validateCampaign({ ...validCampaign, creationMethod: 'Unknown', adGoal: 'Guaranteed sales' });
+  assert.deepEqual(problems.map(x => x.field), ['creationMethod', 'adGoal']);
+});
+
+test('form exposes platform and goal choices', () => {
+  const html = readFileSync('index.html', 'utf8');
+  assert.match(html, /name="creationMethod"/);
+  assert.match(html, /name="adGoal"/);
+  assert.match(html, /value="Instagram Boost"/);
+  assert.match(html, /value="More messages"/);
+});
