@@ -1,3 +1,6 @@
+export const CREATION_METHODS = Object.freeze(['Instagram Boost', 'Meta Ads Manager']);
+export const AD_GOALS = Object.freeze(['More messages', 'More profile visits', 'More website visits', 'More reach', 'More engagement']);
+
 export const ORDERING_CHANNELS = Object.freeze([
   'Instagram Direct',
   'WhatsApp',
@@ -30,6 +33,13 @@ export function validateCampaign(formData) {
     if (typeof formData[field] !== 'string' || !formData[field].trim()) {
       problems.push({ field, message: `${label} is required.` });
     }
+  }
+
+  if (formData.creationMethod !== undefined && !CREATION_METHODS.includes(formData.creationMethod)) {
+    problems.push({ field: 'creationMethod', message: 'Choose Instagram Boost or Meta Ads Manager.' });
+  }
+  if (formData.adGoal !== undefined && !AD_GOALS.includes(formData.adGoal)) {
+    problems.push({ field: 'adGoal', message: 'Choose a supported advertising goal.' });
   }
 
   const minAge = Number(formData.minAge);
@@ -84,6 +94,8 @@ export function generateChatGPTPrompt(formData) {
   const { total, daily, duration } = calculateBudget(formData);
   const postUrl = String(formData.postUrl ?? '').trim() || 'Not provided';
   const fields = [
+    ['Campaign creation method', formData.creationMethod || 'Not specified; ask before giving interface steps'],
+    ['Requested advertising goal', formData.adGoal || 'Not specified; recommend based on ordering channel'],
     ['Page name', formData.pageName],
     ['Instagram/Facebook handle or page URL', formData.pageUrl],
     ['Business description', formData.businessDescription],
@@ -121,8 +133,19 @@ export function generateChatGPTPrompt(formData) {
     '13. A concise campaign configuration table with columns for campaign, ad set, and ad settings.',
     '14. A practical pre-publish checklist.',
     '15. Relevant assumptions, risks, missing details, and what should be verified before launch.',
+    '16. Provide an exact configuration table for the SELECTED interface, including goal, audience, locations, age, gender, suggested interests, destination, total budget, duration, and CTA.',
+    '17. Provide step-by-step instructions for the selected interface, ONE SCREEN AT A TIME. Stop after the current screen and wait for confirmation or a screenshot before moving on.',
     '',
     'GUIDANCE',
+    '- Interface routing: Instagram Boost and Meta Ads Manager are DIFFERENT workflows. If Instagram Boost is selected, use only in-app Boost terminology and controls (for example More messages, audience, budget and duration); do not instruct the user to select Ads Manager campaign/ad-set conversion locations. If Ads Manager is selected, use its campaign, ad set, ad hierarchy and controls.',
+    '- If the user selected Instagram Boost with an existing Reel, start from that Reel and Boost Reel/Boost post. Do not assume every Reel is eligible or every option appears.',
+    '- For an Instagram Direct ordering channel, prefer a messages-focused goal and Instagram Direct destination when offered; explicitly verify the action opens a DM, not merely the Instagram profile. Distinguish More messages from More profile visits.',
+    '- Treat the requested advertising goal as an input, not proof it is optimal. If it conflicts with how orders are placed, explain the mismatch and propose the suitable goal before proceeding.',
+    '- Provide a short, prioritized list of specific, product-relevant interests the user can SEARCH FOR in the selected interface. Mark each as unverified until visibly available in their account. Do not claim any interest is confirmed without evidence. Recommend broad targeting if interests are absent or the audience is small; avoid stacking many interests.',
+    '- Respect geographic precision: city and governorate/region are different. Ask for confirmation when Meta resolves a named city to a larger administrative area.',
+    '- When Advantage+ audience is on, distinguish enforceable controls from suggestions such as gender and maximum age; never promise strict demographic exclusions unless the interface enforces them.',
+    '- For a small lifetime budget, avoid unnecessary audience/ad-set fragmentation; keep the supplied total and duration. Check start/end dates and any platform fee or billing differences before publishing.',
+    '- When using an existing post, verify it is selected and eligible. Review placements, messaging CTA, ad preview and pre-publish status.',
     '- Research online when useful, and cite sources for claims that depend on current information.',
     '- Distinguish verified facts from assumptions and recommendations.',
     '- Do not invent Meta targeting interests. Verify current availability where possible; mark every unverified interest as a suggestion that must be confirmed in Meta Ads Manager.',
