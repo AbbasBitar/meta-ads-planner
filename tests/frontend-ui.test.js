@@ -38,7 +38,7 @@ function makeApp(initialData) {
     entries() { return Object.entries(currentData); }
   }
   const clipboard = { copied: '', async writeText(text) { this.copied = text; } };
-  const source = readFileSync('app.js', 'utf8').replace(/^import .*\n/, '');
+  const source = readFileSync('app.js', 'utf8').replace(/^import[^\r\n]*(?:\r?\n|$)/gm, '');
   vm.runInNewContext(source, {
     document,
     FormData: MockFormData,
