@@ -158,9 +158,12 @@ function initTracker() {
       for (const campaign of page.campaigns) {
         const campaignSection = document.createElement('div'); campaignSection.className = 'tracker-campaign';
         const campaignHeading = document.createElement('div'); campaignHeading.className = 'campaign-heading';
-        const campaignTitle = document.createElement('h4'); campaignTitle.textContent = campaign.name; campaignHeading.append(campaignTitle);
-        if (campaign.goal) { const goal = document.createElement('span'); goal.textContent = campaign.goal; campaignHeading.append(goal); }
-        campaignHeading.append(makeButton('Add boost', () => openEditor({ clientName: page.clientName, pageName: page.pageName, pageUrl: page.pageUrl, campaignId: campaign.id, campaignName: campaign.name, goal: campaign.goal })));
+        const campaignInfo = document.createElement('div'); campaignInfo.className = 'campaign-heading-copy';
+        const campaignTitle = document.createElement('h4'); campaignTitle.textContent = campaign.name; campaignInfo.append(campaignTitle);
+        if (campaign.goal) { const goal = document.createElement('span'); goal.className = 'campaign-goal'; goal.textContent = campaign.goal; campaignInfo.append(goal); }
+        const addBoost = makeButton('Add boost', () => openEditor({ clientName: page.clientName, pageName: page.pageName, pageUrl: page.pageUrl, campaignId: campaign.id, campaignName: campaign.name, goal: campaign.goal }));
+        addBoost.className = 'button button-secondary campaign-add-button';
+        campaignHeading.append(campaignInfo, addBoost);
         campaignSection.append(campaignHeading);
         for (const boost of campaign.boosts) {
           if (!boost.archived) planned += Number(boost.budget);
