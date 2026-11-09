@@ -2,6 +2,8 @@
 
 A simple campaign brief builder. The page validates campaign details, calculates a daily budget, and generates a structured prompt for the user to copy into ChatGPT.
 
+The Campaign Tracker stores planned boosts in this browser's local storage. It groups boosts by client and page, supports multiple overlapping boosts for the same post, and can export or restore a JSON backup. Start times are entered in the browser's local timezone and stored as ISO 8601 UTC timestamps. Durations are elapsed 24-hour periods. Scheduled, Active, and Completed labels describe the saved plan only; they do not indicate whether Meta has delivered an ad.
+
 ## How it works
 
 1. Enter business, page, product, audience, post, budget, duration, and ordering details.

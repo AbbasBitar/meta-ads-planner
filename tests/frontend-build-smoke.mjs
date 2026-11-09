@@ -7,11 +7,12 @@ test('build contains only the usable v2 frontend assets', () => {
     assert.ok(existsSync(path), `Missing ${path}`);
   }
   assert.deepEqual(readdirSync('dist').sort(), ['app.js', 'index.html', 'src', 'styles.css']);
-  assert.deepEqual(readdirSync('dist/src').sort(), ['intake.js']);
+  assert.deepEqual(readdirSync('dist/src').sort(), ['intake.js', 'tracker.js']);
   const html = readFileSync('dist/index.html', 'utf8');
   assert.match(html, /campaign-form/);
   assert.match(html, /https:\/\/chatgpt\.com\//);
   const app = readFileSync('dist/app.js', 'utf8');
   assert.match(app, /generateChatGPTPrompt/);
+  assert.match(app, /initTracker/);
   assert.doesNotMatch(app, /fetch\s*\(|\/api\/submit|telegram|openrouter/i);
 });
