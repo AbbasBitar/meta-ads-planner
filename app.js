@@ -194,13 +194,36 @@ function initTracker() {
       }
       const total = document.createElement('p'); total.className = 'planned-total'; total.textContent = `Planned budget total: ${money.format(planned)}`; section.append(total); groups.append(section);
     }
-    if (!groups.childElementCount) { const empty = document.createElement('p'); empty.textContent = 'No planned campaigns match these filters.'; groups.append(empty); }
+    if (!groups.childElementCount) {
+      const hasRecords = state.pages.length > 0;
+      const empty = document.createElement('div'); empty.className = 'tracker-empty';
+      const symbol = document.createElement('div'); symbol.className = 'tracker-empty-icon'; symbol.textContent = hasRecords ? '⌕' : '＋'; symbol.setAttribute('aria-hidden', 'true');
+      const heading = document.createElement('h3'); heading.textContent = hasRecords ? 'No matching campaigns' : 'Your campaign workspace is ready';
+      const description = document.createElement('p'); description.textContent = hasRecords ? 'Try changing your search or filters to find a saved campaign.' : 'Start by adding a campaign. Keep track of budgets, planned dates, and boosts for each client and page.';
+      empty.append(symbol, heading, description);
+      if (hasRecords) {
+        const clear = makeButton('Clear filters', () => {
+          document.querySelector('#tracker-search').value = '';
+          document.querySelector('#tracker-status').value = '';
+          document.querySelector('#tracker-ending').value = '';
+          pageFilter.value = '';
+          render();
+        });
+        empty.append(clear);
+      } else {
+        const add = makeButton('+ Add your first campaign', () => openEditor());
+        add.className = 'button button-primary';
+        empty.append(add);
+      }
+      groups.append(empty);
+    }
   }
   function editBoost(page, campaign, boost) {
     openEditor({ boostId: boost.id, campaignId: campaign.id, clientName: page.clientName, pageName: page.pageName, pageUrl: page.pageUrl, campaignName: campaign.name, postUrl: boost.postUrl, goal: boost.goal, budget: boost.budget, durationDays: boost.durationDays, startLocal: isoToLocalInput(boost.startAt), status: boost.status });
   }
   function formatCountdown(ms) { const hours = Math.max(0, Math.floor(ms / 3600000)); const days = Math.floor(hours / 24); return days ? `${days}d ${hours % 24}h` : `${hours}h`; }
 
+  document.querySelector('#tracker-add')?.addEventListener('click', () => openEditor());
   document.querySelector('#track-campaign').addEventListener('click', () => {
     const data = getFormData(); const problems = validateCampaign(data); showErrors(problems);
     if (problems.length) { form.querySelector(`[name="${problems[0].field}"]`)?.focus(); return; }
