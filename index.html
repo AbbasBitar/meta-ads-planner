@@ -64,8 +64,8 @@
       <p class="privacy-note">ChatGPT opens separately. This page cannot insert your prompt into a ChatGPT conversation; paste and submit it there yourself.</p>
     </section>
     <section id="tracker" class="card tracker-panel" aria-labelledby="tracker-heading">
-      <div class="section-heading"><span class="step" aria-hidden="true">04</span><div><h2 id="tracker-heading">Campaign Tracker</h2><p>Track planned boosts for your clients and pages. Schedule status describes your plan; it does not confirm Meta delivery.</p></div></div>
-      <div class="tracker-toolbar"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, campaign, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 24 hours</option></select></label></div>
+      <div class="section-heading tracker-heading"><span class="step" aria-hidden="true">04</span><div class="tracker-heading-copy"><p class="eyebrow">YOUR CAMPAIGNS</p><h2 id="tracker-heading">Campaign Tracker</h2><p>Organize your clients, pages, and planned boosts in one place.</p></div><button id="tracker-add" class="button button-primary tracker-add" type="button">+ Add campaign</button></div>
+      <div class="tracker-toolbar" aria-label="Filter tracked campaigns"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, campaign, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 24 hours</option></select></label></div>
       <div id="tracker-message" class="tracker-message" role="status" aria-live="polite"></div>
       <form id="tracker-editor" class="tracker-editor" hidden>
         <h3 id="tracker-editor-title">Track a planned campaign</h3><input name="boostId" type="hidden"><input name="campaignId" type="hidden">
@@ -80,8 +80,8 @@
         <p class="tracker-time-note">Start time is entered in your local timezone. Stored timestamps use ISO 8601 UTC instants.</p>
         <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save boost</button><button id="tracker-cancel-edit" class="button button-secondary" type="button">Cancel</button></div>
       </form>
-      <div id="tracker-groups" class="tracker-groups"></div>
-      <div class="tracker-backup"><button id="tracker-export" class="button button-secondary" type="button">Export backup</button><label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json"></label><button id="tracker-download-corrupt" class="button button-secondary" type="button" hidden>Download unrecoverable saved data</button><span>Data is stored in this browser on this device.</span></div>
+      <div id="tracker-groups" class="tracker-groups" aria-live="polite"></div>
+      <div class="tracker-backup"><span class="tracker-backup-title">Data & backup</span><button id="tracker-export" class="button button-secondary" type="button">Export backup</button><label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json"></label><button id="tracker-download-corrupt" class="button button-secondary" type="button" hidden>Download unrecoverable saved data</button><span class="tracker-backup-note">Stored locally in this browser. Export a backup to protect your records.</span></div>
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
