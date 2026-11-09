@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-layout-v2">
+<html lang="en" data-ui-revision="tracker-layout-v3">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-layout-v2">
+  <link rel="stylesheet" href="styles.css?v=tracker-layout-v3">
 </head>
 <body>
   <header class="site-header">
@@ -81,10 +81,20 @@
         <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save boost</button><button id="tracker-cancel-edit" class="button button-secondary" type="button">Cancel</button></div>
       </form>
       <div id="tracker-groups" class="tracker-groups" aria-live="polite"></div>
-      <div class="tracker-backup"><span class="tracker-backup-title">Data & backup</span><button id="tracker-export" class="button button-secondary" type="button">Export backup</button><label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json"></label><button id="tracker-download-corrupt" class="button button-secondary" type="button" hidden>Download unrecoverable saved data</button><span class="tracker-backup-note">Stored locally in this browser. Export a backup to protect your records.</span></div>
+      <div class="tracker-backup" aria-label="Campaign tracker data and backup">
+        <div class="tracker-backup-copy">
+          <h3 class="tracker-backup-title">Data &amp; backup</h3>
+          <p class="tracker-backup-note">Saved on this device. Export a copy to keep your campaigns safe.</p>
+        </div>
+        <div class="tracker-backup-actions">
+          <button id="tracker-export" class="button button-secondary" type="button">Export backup</button>
+          <label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json" aria-label="Restore campaign tracker JSON backup"></label>
+          <button id="tracker-download-corrupt" class="button button-secondary" type="button" hidden>Download unrecoverable saved data</button>
+        </div>
+      </div>
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-layout-v2"></script>
+  <script type="module" src="app.js?v=tracker-layout-v3"></script>
 </body>
 </html>
