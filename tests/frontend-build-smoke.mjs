@@ -10,6 +10,9 @@ test('build contains only the usable v2 frontend assets', () => {
   assert.deepEqual(readdirSync('dist/src').sort(), ['intake.js', 'tracker.js']);
   const html = readFileSync('dist/index.html', 'utf8');
   assert.match(html, /campaign-form/);
+  assert.match(html, /data-ui-revision="tracker-layout-v2"/);
+  assert.match(html, /styles\\.css\\?v=tracker-layout-v2/);
+  assert.match(html, /app\\.js\\?v=tracker-layout-v2/);
   assert.match(html, /https:\/\/chatgpt\.com\//);
   const app = readFileSync('dist/app.js', 'utf8');
   assert.match(app, /generateChatGPTPrompt/);
