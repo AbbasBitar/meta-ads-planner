@@ -43,7 +43,7 @@ function showErrors(messages) {
   const list = document.createElement('ul');
   for (const message of messages) {
     const item = document.createElement('li');
-    item.textContent = message;
+    item.textContent = typeof message === 'string' ? message : message?.message ?? 'Please check this field.';
     list.append(item);
   }
   errors.append(list);

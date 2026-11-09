@@ -78,6 +78,8 @@ test('frontend prevents generation and reports a missing required field', () => 
   app.fire('#campaign-form', 'submit', { preventDefault() { prevented = true; } });
   assert.equal(prevented, true);
   assert.equal(app.elements.get('#form-errors').hidden, false);
+  assert.equal(app.elements.get('#form-errors').children[0].children[0].textContent, 'Page name is required.');
+  assert.doesNotMatch(app.elements.get('#form-errors').children[0].children[0].textContent, /\\[object Object\\]/);
   assert.equal(app.elements.get('#prompt-panel').hidden, true);
   assert.equal(app.form.focusedSelector, '[name="pageName"]');
 });
