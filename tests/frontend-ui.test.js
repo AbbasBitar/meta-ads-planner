@@ -141,7 +141,7 @@ test('tracker backup footer groups copy and actions without duplicate controls',
   for (const id of ['tracker-export', 'tracker-import', 'tracker-download-corrupt']) {
     assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `${id} must appear exactly once`);
   }
-  assert.match(css, /#tracker \\.tracker-backup-actions/);
-  assert.match(css, /#tracker \\.tracker-backup-copy/);
-  assert.match(css, /@media \\(max-width: 480px\\)/);
+  assert.ok(css.includes('#tracker .tracker-backup-actions'));
+  assert.ok(css.includes('#tracker .tracker-backup-copy'));
+  assert.ok(css.includes('@media (max-width: 480px)'));
 });
