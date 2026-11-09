@@ -127,3 +127,21 @@ test('prompt form keeps one required goal field and does not register on prompt 
   const trackAction = readFileSync('app.js', 'utf8').split("document.querySelector('#track-campaign')")[1].split("editor.elements.namedItem('startLocal')")[0];
   assert.doesNotMatch(trackAction, /clientName:\s*data\.pageName/);
 });
+
+
+test('tracker backup footer groups copy and actions without duplicate controls', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const css = readFileSync('styles.css', 'utf8');
+  const footer = html.match(/<div class="tracker-backup"[^>]*>([\s\S]*?)<\/div>\s*<\/section>/)?.[1];
+  assert.ok(footer, 'tracker backup footer must exist');
+  assert.match(footer, /class="tracker-backup-copy"/);
+  assert.match(footer, /class="tracker-backup-actions"/);
+  assert.match(footer, /class="tracker-backup-title"/);
+  assert.match(footer, /class="tracker-backup-note"/);
+  for (const id of ['tracker-export', 'tracker-import', 'tracker-download-corrupt']) {
+    assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `${id} must appear exactly once`);
+  }
+  assert.ok(css.includes('#tracker .tracker-backup-actions'));
+  assert.ok(css.includes('#tracker .tracker-backup-copy'));
+  assert.ok(css.includes('@media (max-width: 480px)'));
+});
