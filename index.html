@@ -48,7 +48,6 @@
         <div class="field-grid">
           <label>Total advertising budget (USD) <span class="required">*</span><div class="input-prefix"><span aria-hidden="true">$</span><input name="budget" type="number" min="0.01" step="0.01" required placeholder="e.g. 300" inputmode="decimal"></div></label>
           <label>Campaign duration (days) <span class="required">*</span><input name="duration" type="number" min="1" step="1" required placeholder="e.g. 14" inputmode="numeric"></label>
-          <label>Campaign goal <span class="optional">Optional</span><select name="adGoal"><option value="">Choose a goal</option><option>More messages</option><option>More profile visits</option><option>More website visits</option><option>More reach</option><option>More engagement</option></select></label>
           <fieldset class="span-2"><legend>How do customers place orders? <span class="required">*</span></legend><div class="choice-grid"><label class="choice"><input type="radio" name="orderingChannel" value="Instagram Direct" required><span>Instagram Direct</span></label><label class="choice"><input type="radio" name="orderingChannel" value="WhatsApp"><span>WhatsApp</span></label><label class="choice"><input type="radio" name="orderingChannel" value="Website"><span>Website</span></label><label class="choice"><input type="radio" name="orderingChannel" value="Phone"><span>Phone</span></label><label class="choice"><input type="radio" name="orderingChannel" value="In person"><span>In person</span></label></div></fieldset>
         </div>
         <div class="budget-summary" aria-live="polite"><div><span>Total campaign budget</span><strong id="total-budget">—</strong></div><div><span>Estimated daily budget</span><strong id="daily-budget">Enter a budget and duration</strong></div></div>
@@ -66,14 +65,15 @@
     </section>
     <section id="tracker" class="card tracker-panel" aria-labelledby="tracker-heading">
       <div class="section-heading"><span class="step" aria-hidden="true">04</span><div><h2 id="tracker-heading">Campaign Tracker</h2><p>Track planned boosts for your clients and pages. Schedule status describes your plan; it does not confirm Meta delivery.</p></div></div>
-      <div class="tracker-toolbar"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, goal, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 3 days</option></select></label></div>
+      <div class="tracker-toolbar"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, campaign, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 24 hours</option></select></label></div>
       <div id="tracker-message" class="tracker-message" role="status" aria-live="polite"></div>
       <form id="tracker-editor" class="tracker-editor" hidden>
-        <h3 id="tracker-editor-title">Track a planned boost</h3><input name="boostId" type="hidden">
+        <h3 id="tracker-editor-title">Track a planned campaign</h3><input name="boostId" type="hidden"><input name="campaignId" type="hidden">
         <div class="field-grid">
-          <label>Client <span class="required">*</span><input name="clientName" required></label><label>Page name <span class="required">*</span><input name="pageName" required></label>
+          <label>Client <span class="required">*</span><input name="clientName" list="tracker-clients" required><datalist id="tracker-clients"></datalist></label><label>Page name <span class="required">*</span><input name="pageName" required></label>
           <label>Page handle or URL <span class="required">*</span><input name="pageUrl" required></label><label>Post URL <span class="optional">Optional</span><input name="postUrl" type="url"></label>
-          <label>Goal <input name="goal"></label><label>Budget (USD) <input name="budget" type="number" min="0.01" step="0.01" required></label>
+          <label>Campaign name <span class="required">*</span><input name="campaignName" required></label><label>Goal <input name="goal"></label>
+          <label>Budget (USD) <input name="budget" type="number" min="0.01" step="0.01" required></label>
           <label>Duration (days) <input name="durationDays" type="number" min="1" step="1" required></label><label>Start date and time <input name="startLocal" type="datetime-local" required></label>
           <label>Calculated end date and time <input name="endLocal" type="datetime-local" readonly aria-readonly="true"></label><label>Manual status <select name="status"><option>Scheduled</option><option>Paused</option><option>Cancelled</option></select></label>
         </div>
@@ -81,7 +81,7 @@
         <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save boost</button><button id="tracker-cancel-edit" class="button button-secondary" type="button">Cancel</button></div>
       </form>
       <div id="tracker-groups" class="tracker-groups"></div>
-      <div class="tracker-backup"><button id="tracker-export" class="button button-secondary" type="button">Export backup</button><label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json"></label><span>Data is stored in this browser on this device.</span></div>
+      <div class="tracker-backup"><button id="tracker-export" class="button button-secondary" type="button">Export backup</button><label class="button button-secondary import-button">Restore backup<input id="tracker-import" type="file" accept="application/json,.json"></label><button id="tracker-download-corrupt" class="button button-secondary" type="button" hidden>Download unrecoverable saved data</button><span>Data is stored in this browser on this device.</span></div>
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>

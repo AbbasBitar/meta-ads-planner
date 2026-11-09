@@ -113,3 +113,15 @@ test('frontend safely falls back when clipboard permission is unavailable', asyn
   assert.equal(app.elements.get('#generated-prompt').selected, true);
   assert.match(app.elements.get('#copy-status').textContent, /Ctrl\+C/);
 });
+
+test('prompt form keeps one required goal field and does not register on prompt generation', () => {
+  const html = readFileSync('index.html', 'utf8');
+  assert.equal((html.match(/name="adGoal"/g) ?? []).length, 1);
+  assert.match(html, /name="adGoal" required/);
+  assert.match(html, /name="clientName" list="tracker-clients" required/);
+  assert.match(html, /id="track-campaign" type="button"/);
+  const promptSubmit = readFileSync('app.js', 'utf8').split("form.addEventListener('submit'")[1].split("document.querySelector('#copy-prompt')")[0];
+  assert.doesNotMatch(promptSubmit, /upsertBoost|saveTracker/);
+  const trackAction = readFileSync('app.js', 'utf8').split("document.querySelector('#track-campaign')")[1].split("editor.elements.namedItem('startLocal')")[0];
+  assert.doesNotMatch(trackAction, /clientName:\s*data\.pageName/);
+});
