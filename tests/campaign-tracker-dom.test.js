@@ -92,6 +92,18 @@ test('browser initialization renders a saved boost card, progress bar, and count
   const bars = groups.querySelectorAll('.progress-track');
   assert.equal(cards.length, 1);
   assert.equal(bars.length, 1);
+  const headings = groups.querySelectorAll('.campaign-heading');
+  const titleBlocks = groups.querySelectorAll('.campaign-heading-copy');
+  const goalTags = groups.querySelectorAll('.campaign-goal');
+  const boostButtons = groups.querySelectorAll('.campaign-add-button');
+  assert.equal(headings.length, 1);
+  assert.equal(titleBlocks.length, 1);
+  assert.equal(goalTags.length, 1);
+  assert.equal(boostButtons.length, 1);
+  assert.equal(headings[0].children[0], titleBlocks[0], 'campaign details must be grouped separately from its action');
+  assert.equal(headings[0].children[1], boostButtons[0], 'Add boost must be a separate layout child');
+  assert.equal(titleBlocks[0].children[0].textContent, 'Integration Campaign');
+  assert.equal(goalTags[0].textContent, 'Messages');
   assert.ok(Number.parseFloat(bars[0].children[0].style.width) > 0);
   assert.match(cards[0].children.find(child => child.textContent.startsWith('Ends in')).textContent, /^Ends in/);
 });
