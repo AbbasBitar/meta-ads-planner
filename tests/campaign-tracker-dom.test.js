@@ -78,7 +78,7 @@ test('browser initialization renders a saved boost card, progress bar, and count
     addEventListener: () => {}
   };
   const appSource = readFileSync('app.js', 'utf8');
-  const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js';/m);
+  const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js(?:\?v=[^']+)?';/m);
   assert.ok(namedImport, 'tracker module import must be present');
   const importedNames = namedImport[1].split(',').map(name => name.trim());
   const importedTrackerBindings = Object.fromEntries(importedNames.map(name => [name, tracker[name]]));
