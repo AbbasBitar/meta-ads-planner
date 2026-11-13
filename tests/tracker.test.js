@@ -1,7 +1,7 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, removeBoost, replaceTracker, saveTracker, scheduleStatus, transactTracker, upsertBoost, validateState } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, removeBoost, replaceTracker, saveTracker, scheduleStatus, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -163,4 +163,83 @@ test('valid backup export and restore preserve separate campaign entities', () =
   assert.deepEqual(importTracker(exportTracker(state)), state);
   assert.deepEqual(loadTracker(storage), state);
   assert.throws(() => importTracker('{"version":8,"pages":[]}'), /unsupported format/);
+});
+
+const quickInput = {
+  pageName: 'Cedar Lens Photography',
+  createdAt: '2026-11-13T08:00:00.000Z',
+  startAt: '2026-11-14T09:00:00.000Z',
+  budget: 40,
+  durationDays: 5,
+  purpose: 'Promote newborn photography',
+  desiredAction: 'Message you'
+};
+
+test('simplified boost capture preserves timestamps, action, purpose, and v2 compatibility', () => {
+  const state = createTrackerState();
+  const boost = upsertTrackedBoost(state, quickInput);
+  assert.equal(state.version, 2);
+  assert.equal(state.clients.length, 1);
+  assert.equal(state.pages.length, 1);
+  assert.equal(state.pages[0].pageName, quickInput.pageName);
+  assert.equal(boost.createdAt, quickInput.createdAt);
+  assert.equal(boost.startAt, quickInput.startAt);
+  assert.equal(boost.endAt, '2026-11-19T09:00:00.000Z');
+  assert.equal(boost.purpose, quickInput.purpose);
+  assert.equal(boost.desiredAction, 'Message you');
+  assert.ok(state.pages[0].pageUrl.startsWith('@tracker-'));
+  assert.deepEqual(importTracker(exportTracker(state)), state);
+  assert.deepEqual(BOOST_ACTIONS, ['Visit your profile', 'Visit your website', 'Message you', 'Mix of actions']);
+});
+
+test('simplified boost edit preserves existing client, campaign, status, link, and IDs', () => {
+  const state = createTrackerState();
+  const legacy = upsertBoost(state, base);
+  legacy.status = 'Paused';
+  const before = findBoost(state, legacy.id);
+  const originalPageId = before.page.id;
+  const originalCampaignId = before.campaign.id;
+  const changed = upsertTrackedBoost(state, { ...quickInput, pageName: 'Cedar Bakery Updated', desiredAction: 'Visit your profile', budget: 70 }, legacy.id);
+  const after = findBoost(state, legacy.id);
+  assert.equal(changed.id, legacy.id);
+  assert.equal(after.page.id, originalPageId);
+  assert.equal(after.campaign.id, originalCampaignId);
+  assert.equal(after.client.name, 'Client A');
+  assert.equal(after.page.pageUrl, base.pageUrl);
+  assert.equal(after.page.pageName, 'Cedar Bakery Updated');
+  assert.equal(after.boost.status, 'Paused');
+  assert.equal(after.boost.postUrl, base.postUrl);
+  assert.equal(after.boost.budget, 70);
+  assert.equal(after.boost.createdAt, quickInput.createdAt);
+  assert.equal(after.boost.desiredAction, 'Visit your profile');
+});
+
+test('existing and new boosts on the same page reuse a stable page relationship', () => {
+  const state = createTrackerState();
+  upsertTrackedBoost(state, quickInput);
+  const page = state.pages[0];
+  const campaignId = page.campaigns[0].id;
+  const second = upsertTrackedBoost(state, { ...quickInput, purpose: 'New session offer', desiredAction: 'Mix of actions' });
+  assert.equal(state.pages.length, 1);
+  assert.equal(page.campaigns.length, 2);
+  const third = upsertTrackedBoost(state, { ...quickInput, purpose: 'Another reel' }, null, { pageUrl: page.pageUrl, campaignId });
+  assert.equal(findBoost(state, third.id).campaign.id, campaignId);
+  assert.equal(findBoost(state, second.id).page.id, page.id);
+});
+
+test('new boost fields validate strictly and older v2 backups remain readable', () => {
+  const state = createTrackerState();
+  const legacy = upsertBoost(state, base);
+  assert.equal(legacy.createdAt, undefined);
+  assert.equal(legacy.desiredAction, undefined);
+  assert.deepEqual(importTracker(exportTracker(state)), state);
+  for (const desiredAction of ['More clicks', '', 'Go viral']) {
+    assert.throws(() => upsertTrackedBoost(state, { ...quickInput, desiredAction }), /Choose what people should do/);
+  }
+  assert.throws(() => upsertTrackedBoost(state, { ...quickInput, createdAt: 'invalid' }), /timestamp/);
+  const invalid = structuredClone(state);
+  invalid.pages[0].campaigns[0].boosts[0].desiredAction = 'Bad action';
+  assert.throws(() => validateState(invalid), /invalid boost desired action/);
+  assert.equal(state.pages.length, 1);
+  assert.equal(state.pages[0].campaigns.length, 1);
 });
