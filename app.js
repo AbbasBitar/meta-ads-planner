@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, upsertTrackedBoost } from './src/tracker.js';
+import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, upsertTrackedBoost } from './src/tracker.js?v=tracker-layout-v4';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
