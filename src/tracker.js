@@ -4,6 +4,7 @@ export const ENDING_SOON_MS = DAY_MS;
 export const MAX_BACKUP_BYTES = 1_000_000;
 export const COUNTDOWN_REFRESH_MS = 30000;
 export const BOOST_STATUSES = Object.freeze(['Scheduled', 'Active', 'Completed', 'Paused', 'Cancelled']);
+export const BOOST_ACTIONS = Object.freeze(['Visit your profile', 'Visit your website', 'Message you', 'Mix of actions']);
 
 function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function onlyKeys(value, allowed, label) {
@@ -125,13 +126,16 @@ export function validateState(state) {
       if (boostCount > 10000) throw new Error('Backup contains too many boosts.');
       for (const boost of campaign.boosts) {
         if (!record(boost)) throw new Error('Backup contains an invalid boost.');
-        onlyKeys(boost, ['id', 'postUrl', 'goal', 'budget', 'durationDays', 'startAt', 'endAt', 'status', 'archived'], 'boost');
+        onlyKeys(boost, ['id', 'postUrl', 'goal', 'budget', 'durationDays', 'startAt', 'endAt', 'status', 'archived', 'createdAt', 'purpose', 'desiredAction'], 'boost');
         addId(boost.id, 'boost');
         if (typeof boost.budget !== 'number' || !Number.isFinite(boost.budget) || boost.budget <= 0 || !Number.isInteger(boost.durationDays) || boost.durationDays < 1) throw new Error('Backup contains an invalid budget or duration.');
         if (!BOOST_STATUSES.includes(boost.status) || typeof boost.archived !== 'boolean') throw new Error('Backup contains an invalid boost status.');
         boundedString(boost.postUrl, 'post URL', 500, false);
         if (!isSafePostUrl(boost.postUrl)) throw new Error('Backup contains an unsafe post URL.');
         boundedString(boost.goal, 'boost goal', 160, false);
+        if (boost.createdAt !== undefined) parseInstant(boost.createdAt);
+        if (boost.purpose !== undefined) boundedString(boost.purpose, 'boost purpose', 160);
+        if (boost.desiredAction !== undefined && !BOOST_ACTIONS.includes(boost.desiredAction)) throw new Error('Backup contains an invalid boost desired action.');
         const expected = calculateEndDate(boost.startAt, boost.durationDays);
         if (parseInstant(boost.endAt) !== parseInstant(expected)) throw new Error('Backup contains an invalid end date.');
       }
@@ -200,6 +204,10 @@ export function upsertBoost(state, input, boostId = null) {
   if (!isSafePostUrl(postUrl)) throw new Error('Post URL must be a valid HTTPS Instagram or Facebook URL.');
   const startAt = new Date(parseInstant(input.startAt)).toISOString();
   const endAt = calculateEndDate(startAt, durationDays);
+  const createdAt = input.createdAt === undefined ? undefined : new Date(parseInstant(input.createdAt)).toISOString();
+  const purpose = input.purpose === undefined ? undefined : boundedString(input.purpose, 'boost purpose', 160);
+  const desiredAction = input.desiredAction;
+  if (desiredAction !== undefined && !BOOST_ACTIONS.includes(desiredAction)) throw new Error('Choose a valid ad action.');
   const clientKey = clientName.toLocaleLowerCase();
   let client = state.clients.find(item => item.name.toLocaleLowerCase() === clientKey);
   const key = pageKey(pageUrl);
@@ -220,9 +228,59 @@ export function upsertBoost(state, input, boostId = null) {
   if (!campaign) { campaign = { id: uid(), name: campaignName, goal, boosts: [] }; page.campaigns.push(campaign); }
   const previous = boostId ? campaign.boosts.find(item => item.id === boostId) : null;
   const boost = { ...(previous ?? {}), id: previous?.id ?? uid(), postUrl, goal, budget, durationDays, startAt, endAt, status: input.status ?? previous?.status ?? 'Scheduled', archived: input.archived ?? previous?.archived ?? false };
-  if (previous) Object.assign(previous, boost); else campaign.boosts.push(boost);
+  if (createdAt !== undefined) boost.createdAt = createdAt;
+  if (purpose !== undefined) boost.purpose = purpose;
+  if (desiredAction !== undefined) boost.desiredAction = desiredAction;
+  if (previous) { Object.assign(previous, boost); page.pageName = pageName; } else campaign.boosts.push(boost);
   if (existingCampaign) { existingCampaign.name = campaignName; existingCampaign.goal = goal; }
   return boost;
+}
+
+/**
+ * Minimal form adapter. Keeps the existing client -> page -> campaign -> boost
+ * relationships out of the editor, without rewriting or discarding old records.
+ * The creation date represents the date entered by the user, not Meta delivery proof.
+ */
+export function upsertTrackedBoost(state, input, boostId = null, context = {}) {
+  const pageName = String(input.pageName ?? '').trim();
+  const purpose = String(input.purpose ?? '').trim();
+  const desiredAction = String(input.desiredAction ?? '');
+  if (!pageName || pageName.length > 160) throw new Error('Enter a page name (up to 160 characters).');
+  if (!purpose || purpose.length > 160) throw new Error('Enter a boost purpose (up to 160 characters).');
+  if (!BOOST_ACTIONS.includes(desiredAction)) throw new Error('Choose what people should do when they see your ad.');
+  if (typeof input.createdAt !== 'string') throw new Error('Enter the boost creation date.');
+  parseInstant(input.createdAt);
+
+  const found = boostId ? findBoost(state, boostId) : null;
+  if (boostId && !found) throw new Error('Selected boost no longer exists.');
+  let page = found?.page;
+  if (!page && context.pageUrl) page = state.pages.find(item => pageKey(item.pageUrl) === pageKey(context.pageUrl));
+  if (!page) {
+    const matchingPages = state.pages.filter(item => item.pageName.trim().toLocaleLowerCase() === pageName.toLocaleLowerCase());
+    if (matchingPages.length > 1) throw new Error('Multiple pages have that name. Use a distinct page name to avoid mixing records.');
+    page = matchingPages[0] ?? null;
+  }
+  const client = page ? state.clients.find(item => item.id === page.clientId) : null;
+  const campaign = found?.campaign ?? (context.campaignId ? page?.campaigns.find(item => item.id === context.campaignId) : null);
+  if (context.campaignId && !campaign && !found) throw new Error('The selected campaign no longer exists.');
+  const pageUrl = page?.pageUrl ?? context.pageUrl ?? `@tracker-${uid().replace(/[^a-z0-9-]/gi, '').toLowerCase()}`;
+  return upsertBoost(state, {
+    clientName: client?.name ?? 'Tracked pages',
+    pageName,
+    pageUrl,
+    campaignId: campaign?.id,
+    campaignName: campaign?.name ?? purpose,
+    goal: campaign?.goal ?? desiredAction,
+    postUrl: found?.boost.postUrl ?? context.postUrl ?? '',
+    status: found?.boost.status ?? 'Scheduled',
+    archived: found?.boost.archived ?? false,
+    budget: input.budget,
+    durationDays: input.durationDays,
+    startAt: input.startAt,
+    createdAt: input.createdAt,
+    purpose,
+    desiredAction
+  }, boostId);
 }
 
 export function removeBoost(state, boostId) {
@@ -255,7 +313,7 @@ export function filterBoosts(state, { query = '', pageUrl = '', status = '', end
       if (pageUrl && page.pageUrl !== pageUrl) return false;
       if (status && scheduleStatus(boost, now) !== status) return false;
       if (ending === 'soon' && (parseInstant(boost.endAt) <= now || parseInstant(boost.endAt) > now + ENDING_SOON_MS)) return false;
-      const searchable = [client?.name, page.pageName, page.pageUrl, campaign.name, campaign.goal, boost.postUrl, boost.goal].join(' ').toLocaleLowerCase();
+      const searchable = [client?.name, page.pageName, page.pageUrl, campaign.name, campaign.goal, boost.postUrl, boost.goal, boost.purpose, boost.desiredAction].join(' ').toLocaleLowerCase();
       if (terms.some(term => !searchable.includes(term))) return false;
       return true;
     }) })).filter(campaign => campaign.boosts.length);
