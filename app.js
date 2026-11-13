@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, upsertBoost } from './src/tracker.js';
+import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, upsertTrackedBoost } from './src/tracker.js';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -86,7 +86,7 @@ function initTracker() {
   const groups = document.querySelector('#tracker-groups');
   const message = document.querySelector('#tracker-message');
   const pageFilter = document.querySelector('#tracker-page');
-  const clientList = document.querySelector('#tracker-clients');
+  const pageNames = document.querySelector('#tracker-pages');
   const damagedDownload = document.querySelector('#tracker-download-corrupt');
   let storage;
   let state;
@@ -120,8 +120,9 @@ function initTracker() {
       return true;
     } catch (error) { reportSaveFailure(error); return false; }
   };
-  const setForm = (name, value) => { editor.elements.namedItem(name).value = value ?? ''; };
-  const resetEditor = () => { editor.reset(); editor.elements.namedItem('boostId').value = ''; editor.elements.namedItem('campaignId').value = ''; editor.elements.namedItem('status').value = 'Scheduled'; editor.hidden = true; };
+  let editorContext = {};
+  const setForm = (name, value) => { const field = editor.elements.namedItem(name); if (field) field.value = value ?? ''; };
+  const resetEditor = () => { editor.reset(); setForm('boostId', ''); editorContext = {}; editor.hidden = true; };
   const recalc = () => {
     const start = editor.elements.namedItem('startLocal').value;
     const duration = Number(editor.elements.namedItem('durationDays').value);
@@ -130,9 +131,11 @@ function initTracker() {
   };
   const openEditor = (data = {}) => {
     editor.reset();
+    editorContext = { pageUrl: data.pageUrl, postUrl: data.postUrl, campaignId: data.campaignId };
     for (const [key, value] of Object.entries(data)) setForm(key, value);
-    if (!data.startLocal) setForm('startLocal', isoToLocalInput(new Date().toISOString()));
-    if (!data.status) setForm('status', 'Scheduled');
+    const nowLocal = isoToLocalInput(new Date().toISOString());
+    if (!data.boostId && !data.createdLocal) setForm('createdLocal', nowLocal);
+    if (!data.startLocal) setForm('startLocal', nowLocal);
     editor.hidden = false; recalc(); editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   const makeButton = (label, action) => {
@@ -142,8 +145,14 @@ function initTracker() {
     clock = Date.now();
     const selected = pageFilter.value;
     pageFilter.replaceChildren(Object.assign(document.createElement('option'), { value: '', textContent: 'All pages' }));
-    clientList.replaceChildren();
-    for (const client of state.clients) { const option = document.createElement('option'); option.value = client.name; clientList.append(option); }
+    pageNames.replaceChildren();
+    const knownNames = new Set();
+    for (const page of state.pages) {
+      const key = page.pageName.trim().toLocaleLowerCase();
+      if (knownNames.has(key)) continue;
+      knownNames.add(key);
+      const option = document.createElement('option'); option.value = page.pageName; pageNames.append(option);
+    }
     for (const page of state.pages) {
       const client = state.clients.find(item => item.id === page.clientId);
       const option = document.createElement('option'); option.value = page.pageUrl; option.textContent = `${client?.name ?? 'Client'} — ${page.pageName}`; pageFilter.append(option);
@@ -153,7 +162,7 @@ function initTracker() {
     groups.replaceChildren();
     for (const page of filtered) {
       const section = document.createElement('section'); section.className = 'tracker-page-group';
-      const heading = document.createElement('h3'); heading.textContent = `${page.clientName} · ${page.pageName}`; section.append(heading);
+      const heading = document.createElement('h3'); heading.textContent = page.clientName === 'Tracked pages' ? page.pageName : `${page.clientName} · ${page.pageName}`; section.append(heading);
       let planned = 0;
       for (const campaign of page.campaigns) {
         const campaignSection = document.createElement('div'); campaignSection.className = 'tracker-campaign';
@@ -161,7 +170,7 @@ function initTracker() {
         const campaignInfo = document.createElement('div'); campaignInfo.className = 'campaign-heading-copy';
         const campaignTitle = document.createElement('h4'); campaignTitle.textContent = campaign.name; campaignInfo.append(campaignTitle);
         if (campaign.goal) { const goal = document.createElement('span'); goal.className = 'campaign-goal'; goal.textContent = campaign.goal; campaignInfo.append(goal); }
-        const addBoost = makeButton('Add boost', () => openEditor({ clientName: page.clientName, pageName: page.pageName, pageUrl: page.pageUrl, campaignId: campaign.id, campaignName: campaign.name, goal: campaign.goal }));
+        const addBoost = makeButton('Add boost', () => openEditor({ pageName: page.pageName, pageUrl: page.pageUrl, campaignId: campaign.id, purpose: campaign.name, desiredAction: '' }));
         addBoost.className = 'button button-secondary campaign-add-button';
         campaignHeading.append(campaignInfo, addBoost);
         campaignSection.append(campaignHeading);
@@ -173,7 +182,12 @@ function initTracker() {
           const remaining = end - clock;
           const card = document.createElement('article'); card.className = 'boost-card';
           const detail = document.createElement('p'); detail.textContent = `${money.format(boost.budget)} · ${boost.durationDays} days · ${status} (scheduled)${boost.archived ? ' · Archived' : ''}`; card.append(detail);
-          const dates = document.createElement('p'); dates.textContent = `Starts ${formatDate(boost.startAt)} · Ends ${formatDate(boost.endAt)}`; card.append(dates);
+          const purpose = document.createElement('p');
+          purpose.textContent = `Purpose: ${boost.purpose || boost.goal || 'Not specified'} · Action: ${boost.desiredAction || 'Not recorded'}`;
+          card.append(purpose);
+          const dates = document.createElement('p');
+          dates.textContent = `Created ${boost.createdAt ? formatDate(boost.createdAt) : 'not recorded'} · Starts ${formatDate(boost.startAt)} · Ends ${formatDate(boost.endAt)}`;
+          card.append(dates);
           if (boost.postUrl) { const post = document.createElement('a'); post.textContent = 'View post'; post.href = boost.postUrl; post.target = '_blank'; post.rel = 'noopener noreferrer'; card.append(post); }
           const bar = document.createElement('div'); bar.className = 'progress-track'; const fill = document.createElement('span'); fill.style.width = `${progress}%`; bar.append(fill); card.append(bar);
           const countdown = document.createElement('p');
@@ -222,7 +236,13 @@ function initTracker() {
     }
   }
   function editBoost(page, campaign, boost) {
-    openEditor({ boostId: boost.id, campaignId: campaign.id, clientName: page.clientName, pageName: page.pageName, pageUrl: page.pageUrl, campaignName: campaign.name, postUrl: boost.postUrl, goal: boost.goal, budget: boost.budget, durationDays: boost.durationDays, startLocal: isoToLocalInput(boost.startAt), status: boost.status });
+    openEditor({
+      boostId: boost.id, campaignId: campaign.id, pageName: page.pageName, pageUrl: page.pageUrl,
+      createdLocal: boost.createdAt ? isoToLocalInput(boost.createdAt) : '',
+      startLocal: isoToLocalInput(boost.startAt), durationDays: boost.durationDays,
+      budget: boost.budget, purpose: boost.purpose || boost.goal || campaign.name,
+      desiredAction: boost.desiredAction || ''
+    });
   }
   function formatCountdown(ms) { const hours = Math.max(0, Math.floor(ms / 3600000)); const days = Math.floor(hours / 24); return days ? `${days}d ${hours % 24}h` : `${hours}h`; }
 
@@ -230,7 +250,10 @@ function initTracker() {
   document.querySelector('#track-campaign').addEventListener('click', () => {
     const data = getFormData(); const problems = validateCampaign(data); showErrors(problems);
     if (problems.length) { form.querySelector(`[name="${problems[0].field}"]`)?.focus(); return; }
-    openEditor({ pageName: data.pageName, pageUrl: data.pageUrl, postUrl: data.postUrl, goal: data.adGoal, campaignName: data.adGoal, budget: data.budget, durationDays: data.duration });
+    const actionByGoal = { 'More messages': 'Message you', 'More profile visits': 'Visit your profile', 'More website visits': 'Visit your website' };
+    openEditor({ pageName: data.pageName, pageUrl: data.pageUrl, postUrl: data.postUrl,
+      purpose: String(data.products || '').slice(0, 160), desiredAction: actionByGoal[data.adGoal] || '',
+      budget: data.budget, durationDays: data.duration });
   });
   editor.elements.namedItem('startLocal').addEventListener('input', recalc);
   editor.elements.namedItem('durationDays').addEventListener('input', recalc);
@@ -239,9 +262,17 @@ function initTracker() {
     try {
       const data = Object.fromEntries(new FormData(editor).entries());
       const next = cloneState();
-      upsertBoost(next, { ...data, startAt: localInputToIso(data.startLocal), durationDays: Number(data.durationDays), budget: Number(data.budget) }, data.boostId || null);
+      upsertTrackedBoost(next, {
+        pageName: data.pageName,
+        createdAt: localInputToIso(data.createdLocal),
+        startAt: localInputToIso(data.startLocal),
+        durationDays: Number(data.durationDays),
+        budget: Number(data.budget),
+        purpose: data.purpose,
+        desiredAction: data.desiredAction
+      }, data.boostId || null, editorContext);
       if (commit(next, 'Campaign boost saved. Its schedule is planned and does not confirm Meta delivery.')) resetEditor();
-    } catch (error) { showMessage(`Could not save changes: ${error.message}. No changes were applied. Check the client, page, campaign, schedule, and browser storage, then retry.`); }
+    } catch (error) { showMessage(`Could not save changes: ${error.message}. No changes were applied. Check the page name, dates, purpose, desired action, and browser storage, then retry.`); }
   });
   document.querySelector('#tracker-cancel-edit').addEventListener('click', resetEditor);
   for (const selector of ['#tracker-search', '#tracker-page', '#tracker-status', '#tracker-ending']) document.querySelector(selector).addEventListener('input', render);
