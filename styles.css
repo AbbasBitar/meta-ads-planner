@@ -191,3 +191,23 @@
     justify-content: center;
   }
 }
+
+/* Simplified boost editor (v4): only user-requested tracking fields */
+#tracker .tracker-quick-editor {padding:24px;background:#f8faf8;border:1px solid var(--line);border-radius:14px}
+#tracker .tracker-editor-heading {margin-bottom:20px}
+#tracker .tracker-editor-heading h3 {margin:0 0 6px;font-size:19px;letter-spacing:-.02em}
+#tracker .tracker-editor-heading p {margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+#tracker .tracker-quick-editor .field-grid {gap:0 18px}
+#tracker .tracker-quick-editor label {font-size:13px;margin-bottom:17px}
+#tracker .tracker-quick-editor input,
+#tracker .tracker-quick-editor select {min-height:46px}
+#tracker .tracker-quick-editor input[readonly] {background:#edf3ee;color:var(--green);cursor:not-allowed}
+#tracker .tracker-quick-editor .tracker-time-note {margin:2px 0 18px;line-height:1.6}
+#tracker .tracker-editor-actions {gap:10px}
+#tracker .tracker-editor-actions .button {min-height:42px;padding:9px 18px}
+@media(max-width:650px){
+  #tracker .tracker-quick-editor {padding:18px 14px}
+  #tracker .tracker-quick-editor .field-grid {grid-template-columns:1fr}
+  #tracker .tracker-quick-editor .field-grid .span-2 {grid-column:1}
+  #tracker .tracker-editor-actions .button {flex:1}
+}
