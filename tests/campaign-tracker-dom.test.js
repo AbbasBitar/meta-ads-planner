@@ -38,7 +38,7 @@ class ElementMock {
 class FormMock extends ElementMock {
   constructor() {
     super('form');
-    const controls = ['boostId', 'campaignId', 'clientName', 'pageName', 'pageUrl', 'postUrl', 'campaignName', 'goal', 'budget', 'durationDays', 'startLocal', 'endLocal', 'status'];
+    const controls = ['boostId', 'pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction'];
     const values = Object.fromEntries(controls.map(name => [name, new ElementMock('input')]));
     this.elements = { namedItem: name => values[name] };
     this.reset = () => { for (const value of Object.values(values)) value.value = ''; };
@@ -61,7 +61,7 @@ test('browser initialization renders a saved boost card, progress bar, and count
   form.querySelector = () => new ElementMock('input');
   const selectorIds = [
     '#campaign-form', '#form-errors', '#prompt-panel', '#generated-prompt', '#copy-status', '#total-budget', '#daily-budget', '#copy-prompt',
-    '#tracker', '#tracker-editor', '#tracker-groups', '#tracker-message', '#tracker-page', '#tracker-clients', '#tracker-download-corrupt',
+    '#tracker', '#tracker-editor', '#tracker-groups', '#tracker-message', '#tracker-page', '#tracker-pages', '#tracker-download-corrupt',
     '#tracker-search', '#tracker-status', '#tracker-ending', '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
@@ -78,7 +78,7 @@ test('browser initialization renders a saved boost card, progress bar, and count
     addEventListener: () => {}
   };
   const appSource = readFileSync('app.js', 'utf8');
-  const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js';/m);
+  const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js(?:\?v=[^']+)?';/m);
   assert.ok(namedImport, 'tracker module import must be present');
   const importedNames = namedImport[1].split(',').map(name => name.trim());
   const importedTrackerBindings = Object.fromEntries(importedNames.map(name => [name, tracker[name]]));

@@ -120,7 +120,16 @@ test('prompt form keeps one required goal field and does not register on prompt 
   const html = readFileSync('index.html', 'utf8');
   assert.equal((html.match(/name="adGoal"/g) ?? []).length, 1);
   assert.match(html, /name="adGoal" required/);
-  assert.match(html, /name="clientName" list="tracker-clients" required/);
+  const trackerEditor = html.split('<form id="tracker-editor"')[1].split('</form>')[0];
+  for (const field of ['pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction']) {
+    assert.match(trackerEditor, new RegExp(`name="${field}"`), `Missing tracker field ${field}`);
+  }
+  for (const hiddenFromUser of ['clientName', 'pageUrl', 'postUrl', 'campaignName', 'goal', 'status']) {
+    assert.doesNotMatch(trackerEditor, new RegExp(`name="${hiddenFromUser}"`), `Unexpected tracker editor field ${hiddenFromUser}`);
+  }
+  for (const action of ['Visit your profile', 'Visit your website', 'Message you', 'Mix of actions']) {
+    assert.match(trackerEditor, new RegExp(`value="${action}"`));
+  }
   assert.match(html, /id="track-campaign" type="button"/);
   const promptSubmit = readFileSync('app.js', 'utf8').split("form.addEventListener('submit'")[1].split("document.querySelector('#copy-prompt')")[0];
   assert.doesNotMatch(promptSubmit, /upsertBoost|saveTracker/);
