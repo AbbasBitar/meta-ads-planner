@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-layout-v3">
+<html lang="en" data-ui-revision="tracker-layout-v4">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-layout-v3">
+  <link rel="stylesheet" href="styles.css?v=tracker-layout-v4">
 </head>
 <body>
   <header class="site-header">
@@ -67,17 +67,31 @@
       <div class="section-heading tracker-heading"><span class="step" aria-hidden="true">04</span><div class="tracker-heading-copy"><p class="eyebrow">YOUR CAMPAIGNS</p><h2 id="tracker-heading">Campaign Tracker</h2><p>Organize your clients, pages, and planned boosts in one place.</p></div><button id="tracker-add" class="button button-primary tracker-add" type="button">+ Add campaign</button></div>
       <div class="tracker-toolbar" aria-label="Filter tracked campaigns"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, campaign, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 24 hours</option></select></label></div>
       <div id="tracker-message" class="tracker-message" role="status" aria-live="polite"></div>
-      <form id="tracker-editor" class="tracker-editor" hidden>
-        <h3 id="tracker-editor-title">Track a planned campaign</h3><input name="boostId" type="hidden"><input name="campaignId" type="hidden">
-        <div class="field-grid">
-          <label>Client <span class="required">*</span><input name="clientName" list="tracker-clients" required><datalist id="tracker-clients"></datalist></label><label>Page name <span class="required">*</span><input name="pageName" required></label>
-          <label>Page handle or URL <span class="required">*</span><input name="pageUrl" required></label><label>Post URL <span class="optional">Optional</span><input name="postUrl" type="url"></label>
-          <label>Campaign name <span class="required">*</span><input name="campaignName" required></label><label>Goal <input name="goal"></label>
-          <label>Budget (USD) <input name="budget" type="number" min="0.01" step="0.01" required></label>
-          <label>Duration (days) <input name="durationDays" type="number" min="1" step="1" required></label><label>Start date and time <input name="startLocal" type="datetime-local" required></label>
-          <label>Calculated end date and time <input name="endLocal" type="datetime-local" readonly aria-readonly="true"></label><label>Manual status <select name="status"><option>Scheduled</option><option>Paused</option><option>Cancelled</option></select></label>
+      <form id="tracker-editor" class="tracker-editor tracker-quick-editor" hidden>
+        <div class="tracker-editor-heading">
+          <h3 id="tracker-editor-title">Track a planned boost</h3>
+          <p>Record the boost details you need to track. This does not launch an ad on Meta.</p>
         </div>
-        <p class="tracker-time-note">Start time is entered in your local timezone. Stored timestamps use ISO 8601 UTC instants.</p>
+        <input name="boostId" type="hidden">
+        <div class="field-grid">
+          <label class="span-2">Page name <span class="required">*</span><input name="pageName" list="tracker-pages" maxlength="160" required placeholder="e.g. Cedar Lens Photography"><datalist id="tracker-pages"></datalist></label>
+          <label>Boost creation date and time <span class="required">*</span><input name="createdLocal" type="datetime-local" required></label>
+          <label>Boost start date and time <span class="required">*</span><input name="startLocal" type="datetime-local" required></label>
+          <label>Boost end date and time <span class="optional">Calculated</span><input name="endLocal" type="datetime-local" readonly aria-readonly="true"></label>
+          <label>Budget (USD) <span class="required">*</span><input name="budget" type="number" min="0.01" step="0.01" required placeholder="e.g. 40"></label>
+          <label>Duration (days) <span class="required">*</span><input name="durationDays" type="number" min="1" step="1" required placeholder="e.g. 5"></label>
+          <label>Purpose of the boost <span class="required">*</span><input name="purpose" maxlength="160" required placeholder="e.g. Promote newborn photography"></label>
+          <label class="span-2">What do you want people to do when they see your ad? <span class="required">*</span>
+            <select name="desiredAction" required>
+              <option value="">Choose the desired action</option>
+              <option value="Visit your profile">Visit your profile</option>
+              <option value="Visit your website">Visit your website</option>
+              <option value="Message you">Message you</option>
+              <option value="Mix of actions">Mix of actions</option>
+            </select>
+          </label>
+        </div>
+        <p class="tracker-time-note">Use the boost's actual creation date if known. The end date is calculated from the start and duration using elapsed 24-hour days. Saved schedules do not confirm Meta delivery.</p>
         <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save boost</button><button id="tracker-cancel-edit" class="button button-secondary" type="button">Cancel</button></div>
       </form>
       <div id="tracker-groups" class="tracker-groups" aria-live="polite"></div>
@@ -95,6 +109,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-layout-v3"></script>
+  <script type="module" src="app.js?v=tracker-layout-v4"></script>
 </body>
 </html>
