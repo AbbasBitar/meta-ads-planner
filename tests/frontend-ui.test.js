@@ -82,6 +82,16 @@ test('frontend prevents generation and reports a missing required field', () => 
   assert.equal(app.form.focusedSelector, '[name="pageName"]');
 });
 
+test('frontend renders readable validation messages instead of [object Object]', () => {
+  const app = makeApp({ ...sample, pageName: '', locations: '' });
+  app.fire('#campaign-form', 'submit', { preventDefault() {} });
+  const list = app.elements.get('#form-errors').children[0];
+  assert.equal(list.children.length, 2);
+  assert.equal(list.children[0].textContent, 'Page name is required.');
+  assert.equal(list.children[1].textContent, 'Target locations is required.');
+  assert.doesNotMatch(list.children.map(item => item.textContent).join(' '), /\[object Object\]/);
+});
+
 test('frontend calculates daily budget and generates a prompt with every submitted value', () => {
   const app = makeApp(sample);
   app.fire('#campaign-form', 'input');
@@ -105,11 +115,26 @@ test('frontend copies the generated prompt and links to ChatGPT without campaign
   assert.match(html, /href="https:\/\/chatgpt\.com\/" target="_blank" rel="noopener noreferrer"/);
 });
 
+test('frontend captures the copy button before awaiting clipboard access', async () => {
+  const app = makeApp(sample);
+  app.fire('#campaign-form', 'submit', { preventDefault() {} });
+  const button = new MockElement();
+  const event = { currentTarget: button };
+  const pending = app.fire('#copy-prompt', 'click', event);
+  event.currentTarget = null;
+  await pending;
+  assert.equal(button.focused, true);
+});
+
 test('frontend safely falls back when clipboard permission is unavailable', async () => {
   const app = makeApp(sample);
   app.clipboard.writeText = async () => { throw new Error('clipboard unavailable'); };
   app.fire('#campaign-form', 'submit', { preventDefault() {} });
-  await app.fire('#copy-prompt', 'click', { currentTarget: new MockElement() });
+  const event = { currentTarget: new MockElement() };
+  const pending = app.fire('#copy-prompt', 'click', event);
+  event.currentTarget = null;
+  await pending;
+  assert.equal(app.elements.get('#generated-prompt').focused, true);
   assert.equal(app.elements.get('#generated-prompt').selected, true);
   assert.match(app.elements.get('#copy-status').textContent, /Ctrl\+C/);
 });
