@@ -582,3 +582,37 @@ export function weeklySummary(state, now = Date.now()) {
     worst
   };
 }
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return text.includes(String.fromCharCode(34)) || text.includes(',') || text.includes(String.fromCharCode(10)) || text.includes(String.fromCharCode(13))
+    ? String.fromCharCode(34) + text.split(String.fromCharCode(34)).join(String.fromCharCode(34, 34)) + String.fromCharCode(34)
+    : text;
+}
+
+export function exportResultsCsv(state) {
+  const header = ['Date', 'Client', 'Page', 'Campaign', 'Purpose', 'Spend (USD)', 'Results', 'Cost per result (USD)'];
+  const rows = [];
+  for (const page of state.pages) {
+    const client = state.clients.find(item => item.id === page.clientId);
+    for (const campaign of page.campaigns) {
+      for (const boost of campaign.boosts) {
+        for (const entry of boost.resultsLog ?? []) {
+          rows.push([
+            entry.date,
+            client?.name ?? '',
+            page.pageName,
+            campaign.name,
+            boost.purpose || boost.goal || campaign.name,
+            entry.spend.toFixed(2),
+            String(entry.results),
+            entry.results > 0 ? (entry.spend / entry.results).toFixed(2) : ''
+          ]);
+        }
+      }
+    }
+  }
+  rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[2].localeCompare(b[2])));
+  const lines = [header, ...rows].map(row => row.map(csvCell).join(','));
+  return lines.join(String.fromCharCode(13, 10)) + String.fromCharCode(13, 10);
+}

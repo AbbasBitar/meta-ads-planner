@@ -102,7 +102,7 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters',
     '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help',
     '#daily-check', '#daily-check-list', '#daily-check-heading', '#results-form', '#results-form-error', '#results-form-title', '#results-form-context', '#results-cancel',
-    '#weekly-summary', '#weekly-summary-list', '#weekly-summary-heading'
+    '#weekly-summary', '#weekly-summary-list', '#weekly-summary-heading', '#tracker-export-results'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);

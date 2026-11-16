@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost, weeklySummary } from './src/tracker.js?v=weekly-v1';
+import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportResultsCsv, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost, weeklySummary } from './src/tracker.js?v=results-csv-v1';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -704,6 +704,12 @@ function initTracker() {
   document.querySelector('#tracker-clear-filters').addEventListener('click', clearFilters);
   document.querySelector('#tracker-export').addEventListener('click', () => {
     const blob = new Blob([exportTracker(state)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'meta-ads-planner-tracker.json'; link.click(); URL.revokeObjectURL(link.href);
+  });
+  document.querySelector('#tracker-export-results').addEventListener('click', () => {
+    const csv = exportResultsCsv(state);
+    const rowCount = csv.trim().split(/\r?\n/).length - 1;
+    const blob = new Blob([csv], { type: 'text/csv' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'meta-ads-planner-results.csv'; link.click(); URL.revokeObjectURL(link.href);
+    setMessage(rowCount > 0 ? `Results log exported as CSV (${rowCount} ${rowCount === 1 ? 'row' : 'rows'}).` : 'No logged results yet — the CSV contains only the header row.');
   });
   damagedDownload.hidden = !damagedRaw;
   damagedDownload.addEventListener('click', () => {

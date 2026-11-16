@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, boostPerformance, calculateEndDate, createTrackerState, dailyChecklist, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, logBoostResults, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState, weeklySummary } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, boostPerformance, calculateEndDate, createTrackerState, dailyChecklist, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, logBoostResults, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState, weeklySummary, exportResultsCsv } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -463,4 +463,19 @@ test('weekly summary is empty without recent entries and ignores zero-result CPA
   assert.equal(summary.totals.cpa, null);
   assert.equal(summary.best, null);
   assert.equal(summary.worst, null);
+});
+
+test('results CSV export formats rows, quotes unsafe cells, and sorts by date', () => {
+  const state = createTrackerState();
+  const a = addBoost(state, { ...base, clientName: 'Client, A' });
+  const b = addBoost(state, { ...base, clientName: 'Client, A', campaignName: 'Quoted "sale"', postUrl: '' });
+  logBoostResults(state, b.id, { date: '2026-02-03', spend: 30, results: 0 });
+  logBoostResults(state, a.id, { date: '2026-02-02', spend: 12.5, results: 5 });
+  const csv = exportResultsCsv(state);
+  const lines = csv.trim().split(/\r?\n/);
+  assert.equal(lines[0], 'Date,Client,Page,Campaign,Purpose,Spend (USD),Results,Cost per result (USD)');
+  assert.equal(lines[1], '2026-02-02,"Client, A",Cedar Bakery,Spring launch,Messages,12.50,5,2.50');
+  assert.equal(lines[2], '2026-02-03,"Client, A",Cedar Bakery,"Quoted ""sale""",Messages,30.00,0,');
+  assert.equal(lines.length, 3);
+  assert.equal(exportResultsCsv(createTrackerState()).trim().split(/\r?\n/).length, 1, 'empty state exports only the header');
 });
