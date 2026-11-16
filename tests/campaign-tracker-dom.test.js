@@ -21,6 +21,7 @@ class ElementMock {
   }
   addEventListener(type, callback) { this.listeners[type] = callback; }
   setAttribute(name, value) { this[name] = value; }
+  getAttribute(name) { return this[name] == null ? null : String(this[name]); }
   append(...items) { this.children.push(...items); }
   replaceChildren(...items) { this.children = items; }
   get childElementCount() { return this.children.length; }
@@ -351,4 +352,64 @@ test('pagehide stops the countdown timer and bfcache pageshow restarts it', () =
   app.windowListeners.pageshow[0]({ persisted: true });
   assert.equal(app.intervals.started, 2);
   assert.equal(app.intervals.cleared, 1);
+});
+
+test('card detail shows the computed status without a contradictory scheduled suffix', () => {
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, { ...base, startAt: new Date(Date.now() - 3600000).toISOString() });
+  const app = setupTracker(state);
+  const detail = app.groups.querySelectorAll('.boost-card')[0].children[0];
+  assert.match(detail.textContent, /^\$100\.00 · 4 days · Active$/);
+  assert.doesNotMatch(detail.textContent, /\(scheduled\)/);
+});
+
+test('cancelled boost shows schedule cancelled instead of countdown paused', () => {
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, { ...base, status: 'Cancelled' });
+  const app = setupTracker(state);
+  const countdown = app.groups.querySelectorAll('.boost-card')[0].children.find(node => node.textContent.startsWith('Schedule'));
+  assert.ok(countdown);
+  assert.equal(countdown.textContent, 'Schedule cancelled');
+  assert.doesNotMatch(countdown.textContent, /paused/);
+  assert.equal(app.groups.querySelectorAll('.progress-track').length, 0);
+});
+
+test('countdown under an hour shows minutes', () => {
+  const startAt = new Date(Date.now() + 25 * 60 * 1000 + 30000).toISOString();
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, { ...base, startAt });
+  const app = setupTracker(state);
+  const countdown = app.groups.querySelectorAll('.boost-card')[0].children.find(node => node.textContent.startsWith('Starts in'));
+  assert.ok(countdown);
+  assert.match(countdown.textContent, /^Starts in 25m$/);
+});
+
+test('progress bar exposes progressbar semantics with a value', () => {
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, base);
+  const app = setupTracker(state);
+  const bar = app.groups.querySelectorAll('.progress-track')[0];
+  assert.ok(bar);
+  assert.equal(bar.getAttribute('role'), 'progressbar');
+  assert.equal(bar.getAttribute('aria-valuemin'), '0');
+  assert.equal(bar.getAttribute('aria-valuemax'), '100');
+  assert.match(bar.getAttribute('aria-valuenow'), /^\d+$/);
+  assert.match(bar.getAttribute('aria-label'), /Schedule progress for/);
+});
+
+test('tracker-message uses an error tone class for failures and green for success', () => {
+  const app = setupTracker();
+  app.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app.storage });
+  assert.match(app.elements.get('#tracker-message').className, /tracker-message--success/);
+  app.stored.set(tracker.STORAGE_KEY, 'not json');
+  app.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app.storage });
+  assert.match(app.elements.get('#tracker-message').className, /tracker-message--error/);
+  assert.equal(app.elements.get('#tracker-message').getAttribute('role'), 'alert');
+  assert.doesNotMatch(app.elements.get('#tracker-message').className, /tracker-message--success/);
+
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, base);
+  const app2 = setupTracker(state);
+  app2.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app2.storage });
+  assert.match(app2.elements.get('#tracker-message').className, /tracker-message--success/);
 });

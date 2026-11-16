@@ -273,14 +273,18 @@ function initTracker() {
   }
   let clock = Date.now();
   const formatDate = value => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  const showMessage = value => { message.textContent = value; };
+  const setMessage = (value, tone = 'success') => {
+    message.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    message.className = `tracker-message tracker-message--${tone}`;
+    message.textContent = value.replace(/\.{2,}/g, '.');
+  };
   const cloneState = () => structuredClone(state);
-  const reportSaveFailure = error => showMessage(formatSaveFailure(error));
+  const reportSaveFailure = error => setMessage(formatSaveFailure(error), 'error');
   const setUndo = value => { undoSnapshot = value; undoImport.hidden = !value; };
   const closeImportReview = () => { pendingImport = null; importReview.hidden = true; importSummary.textContent = ''; };
   const commit = (next, success, allowRecovery = false, keepUndo = false) => {
     if (storageError && !allowRecovery) {
-      showMessage(`${storageError.message} Restore a valid backup before making tracker changes.`);
+      setMessage(`${storageError.message} Restore a valid backup before making tracker changes.`, 'error');
       return false;
     }
     try {
@@ -289,7 +293,7 @@ function initTracker() {
       damagedRaw = null;
       damagedDownload.hidden = true;
       render();
-      showMessage(success);
+      setMessage(success);
       if (!keepUndo) { setUndo(null); closeImportReview(); }
       return true;
     } catch (error) { reportSaveFailure(error); return false; }
@@ -379,7 +383,7 @@ function initTracker() {
           const progress = Math.max(0, Math.min(100, ((clock - start) / duration) * 100));
           const remaining = end - clock;
           const card = document.createElement('article'); card.className = 'boost-card';
-          const detail = document.createElement('p'); detail.textContent = `${money.format(boost.budget)} · ${boost.durationDays} days · ${status} (scheduled)${boost.archived ? ' · Archived' : ''}`; card.append(detail);
+          const detail = document.createElement('p'); detail.textContent = `${money.format(boost.budget)} · ${boost.durationDays} days · ${status}${boost.archived ? ' · Archived' : ''}`; card.append(detail);
           const purpose = document.createElement('p');
           purpose.textContent = `Purpose: ${boost.purpose || boost.goal || 'Not specified'} · Action: ${boost.desiredAction || 'Not recorded'}`;
           card.append(purpose);
@@ -387,11 +391,13 @@ function initTracker() {
           dates.textContent = `Created ${boost.createdAt ? formatDate(boost.createdAt) : 'not recorded'} · Starts ${formatDate(boost.startAt)} · Ends ${formatDate(boost.endAt)}`;
           card.append(dates);
           if (boost.postUrl) { const post = document.createElement('a'); post.textContent = 'View post'; post.href = boost.postUrl; post.target = '_blank'; post.rel = 'noopener noreferrer'; card.append(post); }
-          const bar = document.createElement('div'); bar.className = 'progress-track'; const fill = document.createElement('span'); fill.style.width = `${progress}%`; bar.append(fill); card.append(bar);
+          if (status !== 'Paused' && status !== 'Cancelled') {
+            const bar = document.createElement('div'); bar.className = 'progress-track'; bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuenow', String(Math.round(progress))); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-label', `Schedule progress for ${campaign.name}`); const fill = document.createElement('span'); fill.style.width = `${progress}%`; bar.append(fill); card.append(bar);
+          }
           const countdown = document.createElement('p');
           if (status === 'Scheduled') countdown.textContent = `Starts in ${formatCountdown(start - clock)}`;
           else if (status === 'Active') countdown.textContent = `Ends in ${formatCountdown(remaining)}${remaining <= ENDING_SOON_MS ? ' · Ending soon' : ''}`;
-          else countdown.textContent = status === 'Completed' ? 'Schedule completed' : `Countdown paused (${status})`;
+          else countdown.textContent = status === 'Completed' ? 'Schedule completed' : status === 'Cancelled' ? 'Schedule cancelled' : `Countdown paused (${status})`;
           countdown.className = remaining > 0 && remaining <= ENDING_SOON_MS && status === 'Active' ? 'ending-soon' : ''; card.append(countdown);
           const actions = document.createElement('div'); actions.className = 'boost-actions';
           actions.append(makeButton('Edit', event => editBoost(page, campaign, boost, event.currentTarget), `edit:${boost.id}`));
@@ -446,7 +452,14 @@ function initTracker() {
       desiredAction: boost.desiredAction || ''
     }, trigger);
   }
-  function formatCountdown(ms) { const hours = Math.max(0, Math.floor(ms / 3600000)); const days = Math.floor(hours / 24); return days ? `${days}d ${hours % 24}h` : `${hours}h`; }
+  function formatCountdown(ms) {
+  ms = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(ms / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(ms / 3600);
+  const days = Math.floor(hours / 24);
+  return days ? `${days}d ${hours % 24}h` : `${hours}h`;
+}
 
   document.querySelector('#tracker-add')?.addEventListener('click', event => openEditor({}, event.currentTarget));
   document.querySelector('#track-campaign').addEventListener('click', event => {
@@ -484,7 +497,7 @@ function initTracker() {
         desiredAction: data.desiredAction
       }, data.boostId || null, editorContext);
       if (commit(next, 'Campaign boost saved. Its schedule is planned and does not confirm Meta delivery.')) resetEditor({ restoreFocus: true });
-    } catch (error) { showMessage(`Could not save changes: ${error.message}. No changes were applied. Check the page name, dates, purpose, desired action, and browser storage, then retry.`); }
+    } catch (error) { setMessage(`Could not save changes: ${error.message}. No changes were applied. Check the page name, dates, purpose, desired action, and browser storage, then retry.`, 'error'); }
   });
   document.querySelector('#tracker-cancel-edit').addEventListener('click', () => resetEditor({ restoreFocus: true }));
   for (const selector of ['#tracker-search', '#tracker-page', '#tracker-status', '#tracker-ending']) document.querySelector(selector).addEventListener('input', render);
@@ -542,7 +555,7 @@ function initTracker() {
       importSummary.focus({ preventScroll: true });
     } catch (error) {
       closeImportReview();
-      showMessage(`Could not restore backup: ${error.message}. Existing saved data was left unchanged.`);
+      setMessage(`Could not restore backup: ${error.message}. Existing saved data was left unchanged.`, 'error');
     } finally { input.value = ''; }
   });
   const syncFromStorage = () => {
@@ -554,7 +567,7 @@ function initTracker() {
       storageError = error;
       try { damagedRaw = storage?.getItem(STORAGE_KEY) ?? null; } catch { /* keep the original storage error */ }
       damagedDownload.hidden = !damagedRaw;
-      showMessage(`${error.message} The tracker still shows the last valid data loaded in this tab.`);
+      setMessage(`${error.message} The tracker still shows the last valid data loaded in this tab.`, 'error');
       return;
     }
     state = next;
@@ -566,9 +579,9 @@ function initTracker() {
     render();
     if (editingId && !findBoost(state, editingId)) {
       resetEditor();
-      showMessage('Campaign tracker updated in another tab. The boost you were editing was removed, so the editor was closed.');
+      setMessage('Campaign tracker updated in another tab. The boost you were editing was removed, so the editor was closed.', 'warning');
     } else {
-      showMessage('Campaign tracker updated in another tab.');
+      setMessage('Campaign tracker updated in another tab.');
     }
     if (pendingImport && !importReview.hidden) {
       importSummary.textContent = `This backup contains ${formatCounts(trackerCounts(pendingImport))}. The tracker currently contains ${formatCounts(trackerCounts(state))}. Merge keeps existing records and adds new ones; replace deletes all current tracker data.`;
@@ -595,7 +608,7 @@ function initTracker() {
     render();
     startRefreshTimer();
   });
-  if (storageError) showMessage(`${storageError.message} Existing stored data has not been changed; download it or restore a valid backup.`);
+  if (storageError) setMessage(`${storageError.message} Existing stored data has not been changed; download it or restore a valid backup.`, 'error');
   render();
   startRefreshTimer();
 }
