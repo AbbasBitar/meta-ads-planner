@@ -99,7 +99,7 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#tracker', '#tracker-heading', '#tracker-editor', '#tracker-editor-title', '#tracker-groups', '#tracker-message', '#tracker-page', '#tracker-pages',
     '#tracker-clients', '#tracker-download-corrupt', '#tracker-add', '#tracker-import-review', '#tracker-import-summary', '#tracker-import-merge',
     '#tracker-import-replace', '#tracker-import-cancel', '#tracker-undo-import', '#tracker-search', '#tracker-status', '#tracker-ending',
-    '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import'
+    '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
@@ -192,6 +192,26 @@ test('tracker opens the campaign editor independently of the brief and focuses i
   assert.equal(app.elements.get('#tracker-editor-title').focused, true);
   assert.equal(app.editor.elements.namedItem('pageName').value, '');
   assert.equal(app.editor.elements.namedItem('createdLocal').value.length > 0, true);
+});
+
+test('archive filter hides and restores cards, and budget excludes archived and cancelled boosts', () => {
+  const state = tracker.createTrackerState();
+  const archived = tracker.upsertBoost(state, base);
+  const cancelled = tracker.upsertBoost(state, { ...base, budget: 200, status: 'Cancelled' });
+  const app = setupTracker(state);
+  const archive = app.groups.querySelectorAll('.button').find(button => button.dataset.focus === `archive:${archived.id}`);
+  archive.listeners.click({});
+  assert.equal(app.groups.querySelectorAll('.boost-card').length, 1);
+  assert.match(app.elements.get('#tracker-summary').textContent, /1 visible boost · Visible planned budget: \$0.00/);
+  const filter = app.elements.get('#tracker-archived');
+  filter.value = 'all';
+  filter.listeners.input({});
+  assert.equal(app.groups.querySelectorAll('.boost-card').length, 2);
+  assert.match(app.elements.get('#tracker-summary').textContent, /2 visible boosts · Visible planned budget: \$0.00/);
+  const restore = app.groups.querySelectorAll('.button').find(button => button.dataset.focus === `archive:${archived.id}`);
+  restore.listeners.click({});
+  assert.match(app.elements.get('#tracker-summary').textContent, /\$100.00/);
+  assert.equal(tracker.findBoost(JSON.parse(app.stored.get(tracker.STORAGE_KEY)), cancelled.id).boost.status, 'Cancelled');
 });
 
 test('opening a new campaign while an edit is open does not overwrite the edited boost', () => {

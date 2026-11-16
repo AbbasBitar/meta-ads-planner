@@ -238,3 +238,10 @@ input[aria-invalid="true"]:focus,select[aria-invalid="true"]:focus,textarea[aria
 .ready-badge.is-stale{background:#fff1dc;color:#8a4b12}
 .prompt-actions .button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:650px){.prompt-stale{flex-direction:column;align-items:stretch}.prompt-stale .button{width:100%}}
+
+.tracker-filter-options{display:flex;align-items:end;gap:12px;margin-top:12px;flex-wrap:wrap}
+.tracker-filter-options label{margin:0;min-width:180px;flex:1;max-width:240px}
+.tracker-filter-options select{margin-top:6px}
+.tracker-filter-options .button{min-height:44px}
+.tracker-summary{margin:18px 0 4px;font-size:14px;font-weight:700}
+.tracker-summary-note{margin:0 0 14px;color:var(--muted);font-size:12px;line-height:1.5}

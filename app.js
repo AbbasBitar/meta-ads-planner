@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-p1-ux-v6';
+import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-dashboard-v8';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -360,7 +360,10 @@ function initTracker() {
       const option = document.createElement('option'); option.value = page.pageUrl; option.textContent = `${client?.name ?? 'Client'} — ${page.pageName}`; pageFilter.append(option);
     }
     pageFilter.value = selected;
-    const filtered = filterBoosts(state, { query: document.querySelector('#tracker-search').value, pageUrl: pageFilter.value, status: document.querySelector('#tracker-status').value, ending: document.querySelector('#tracker-ending').value, now: clock });
+    const filtered = filterBoosts(state, { query: document.querySelector('#tracker-search').value, pageUrl: pageFilter.value, status: document.querySelector('#tracker-status').value, ending: document.querySelector('#tracker-ending').value, archived: document.querySelector('#tracker-archived').value || 'hide', now: clock });
+    const visibleBoosts = filtered.flatMap(page => page.campaigns.flatMap(campaign => campaign.boosts));
+    const visibleBudget = visibleBoosts.reduce((sum, boost) => sum + (!boost.archived && scheduleStatus(boost, clock) !== 'Cancelled' ? boost.budget : 0), 0);
+    document.querySelector('#tracker-summary').textContent = `${visibleBoosts.length} visible boost${visibleBoosts.length === 1 ? '' : 's'} · Visible planned budget: ${money.format(visibleBudget)}`;
     groups.replaceChildren();
     for (const page of filtered) {
       const section = document.createElement('section'); section.className = 'tracker-page-group';
@@ -377,8 +380,8 @@ function initTracker() {
         campaignHeading.append(campaignInfo, addBoost);
         campaignSection.append(campaignHeading);
         for (const boost of campaign.boosts) {
-          if (!boost.archived) planned += Number(boost.budget);
           const start = Date.parse(boost.startAt), end = Date.parse(boost.endAt), status = scheduleStatus(boost, clock);
+          if (!boost.archived && status !== 'Cancelled') planned += Number(boost.budget);
           const duration = Number(boost.durationDays) * DAY_MS;
           const progress = Math.max(0, Math.min(100, ((clock - start) / duration) * 100));
           const remaining = end - clock;
@@ -413,7 +416,7 @@ function initTracker() {
         }
         section.append(campaignSection);
       }
-      const total = document.createElement('p'); total.className = 'planned-total'; total.textContent = `Planned budget total: ${money.format(planned)}`; section.append(total); groups.append(section);
+      const total = document.createElement('p'); total.className = 'planned-total'; total.textContent = `Visible planned budget: ${money.format(planned)}`; section.append(total); groups.append(section);
     }
     if (!groups.childElementCount) {
       const hasRecords = state.pages.length > 0;
@@ -423,14 +426,11 @@ function initTracker() {
       const description = document.createElement('p'); description.textContent = hasRecords ? 'Try changing your search or filters to find a saved campaign.' : 'Start by adding a campaign. Keep track of budgets, planned dates, and boosts for each client and page.';
       empty.append(symbol, heading, description);
       if (hasRecords) {
-        const clear = makeButton('Clear filters', () => {
-          document.querySelector('#tracker-search').value = '';
-          document.querySelector('#tracker-status').value = '';
-          document.querySelector('#tracker-ending').value = '';
-          pageFilter.value = '';
-          render();
-        });
+        const clear = makeButton('Clear filters', clearFilters);
         empty.append(clear);
+        if (state.pages.some(page => page.campaigns.some(campaign => campaign.boosts.some(boost => boost.archived)))) {
+          empty.append(makeButton('Show archived', () => { document.querySelector('#tracker-archived').value = 'all'; render(); }));
+        }
       } else {
         const add = makeButton('+ Add your first campaign', event => openEditor({}, event.currentTarget), 'add-first');
         add.className = 'button button-primary';
@@ -442,6 +442,14 @@ function initTracker() {
       const target = findByFocus(focusKey);
       (target ?? document.querySelector('#tracker-heading'))?.focus({ preventScroll: true });
     }
+  }
+  function clearFilters() {
+    document.querySelector('#tracker-search').value = '';
+    document.querySelector('#tracker-status').value = '';
+    document.querySelector('#tracker-ending').value = '';
+    document.querySelector('#tracker-archived').value = 'hide';
+    pageFilter.value = '';
+    render();
   }
   function editBoost(page, campaign, boost, trigger) {
     openEditor({
@@ -500,7 +508,8 @@ function initTracker() {
     } catch (error) { setMessage(`Could not save changes: ${error.message}. No changes were applied. Check the page name, dates, purpose, desired action, and browser storage, then retry.`, 'error'); }
   });
   document.querySelector('#tracker-cancel-edit').addEventListener('click', () => resetEditor({ restoreFocus: true }));
-  for (const selector of ['#tracker-search', '#tracker-page', '#tracker-status', '#tracker-ending']) document.querySelector(selector).addEventListener('input', render);
+  for (const selector of ['#tracker-search', '#tracker-page', '#tracker-status', '#tracker-ending', '#tracker-archived']) document.querySelector(selector).addEventListener('input', render);
+  document.querySelector('#tracker-clear-filters').addEventListener('click', clearFilters);
   document.querySelector('#tracker-export').addEventListener('click', () => {
     const blob = new Blob([exportTracker(state)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'meta-ads-planner-tracker.json'; link.click(); URL.revokeObjectURL(link.href);
   });

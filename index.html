@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-p1-ux-v7">
+<html lang="en" data-ui-revision="tracker-dashboard-v8">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-p1-ux-v7">
+  <link rel="stylesheet" href="styles.css?v=tracker-dashboard-v8">
 </head>
 <body>
   <header class="site-header">
@@ -70,6 +70,9 @@
     <section id="tracker" class="card tracker-panel" aria-labelledby="tracker-heading">
       <div class="section-heading tracker-heading"><span class="step" aria-hidden="true">04</span><div class="tracker-heading-copy"><p class="eyebrow">YOUR CAMPAIGNS</p><h2 id="tracker-heading" tabindex="-1">Campaign Tracker</h2><p>Organize your clients, pages, and planned boosts in one place.</p></div><button id="tracker-add" class="button button-primary tracker-add" type="button">+ Add campaign</button></div>
       <div class="tracker-toolbar" aria-label="Filter tracked campaigns"><label>Search<input id="tracker-search" type="search" placeholder="Client, page, campaign, or post"></label><label>Page<select id="tracker-page"><option value="">All pages</option></select></label><label>Status<select id="tracker-status"><option value="">All statuses</option><option>Scheduled</option><option>Active</option><option>Completed</option><option>Paused</option><option>Cancelled</option></select></label><label>Ending<select id="tracker-ending"><option value="">Any date</option><option value="soon">Within 24 hours</option></select></label></div>
+      <div class="tracker-filter-options"><label>Archived<select id="tracker-archived"><option value="hide">Hide archived</option><option value="all">Include archived</option><option value="only">Archived only</option></select></label><button id="tracker-clear-filters" class="button button-secondary" type="button">Clear filters</button></div>
+      <p id="tracker-summary" class="tracker-summary"></p>
+      <p class="tracker-summary-note">Visible budget excludes archived and cancelled boosts; completed boosts are included. Statuses describe plans, not Meta delivery.</p>
       <div id="tracker-message" class="tracker-message" role="status"></div>
       <div id="tracker-import-review" class="tracker-import-review" role="group" aria-labelledby="tracker-import-summary" hidden>
         <p id="tracker-import-summary" tabindex="-1"></p>
@@ -118,6 +121,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-p1-ux-v7"></script>
+  <script type="module" src="app.js?v=tracker-dashboard-v8"></script>
 </body>
 </html>
