@@ -99,7 +99,8 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#tracker', '#tracker-heading', '#tracker-editor', '#tracker-editor-title', '#tracker-groups', '#tracker-message', '#tracker-page', '#tracker-pages',
     '#tracker-clients', '#tracker-download-corrupt', '#tracker-add', '#tracker-import-review', '#tracker-import-summary', '#tracker-import-merge',
     '#tracker-import-replace', '#tracker-import-cancel', '#tracker-undo-import', '#tracker-search', '#tracker-status', '#tracker-ending',
-    '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters'
+    '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters',
+    '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
@@ -177,7 +178,7 @@ test('browser initialization renders a saved boost card, progress bar, and count
   assert.equal(goalTags.length, 1);
   assert.equal(boostButtons.length, 1);
   assert.equal(headings[0].children[0], titleBlocks[0], 'campaign details must be grouped separately from its action');
-  assert.equal(headings[0].children[1], boostButtons[0], 'Add boost must be a separate layout child');
+  assert.ok(headings[0].children[1].children.includes(boostButtons[0]), 'Add boost must be grouped with campaign actions');
   assert.equal(titleBlocks[0].children[0].textContent, 'Integration Campaign');
   assert.equal(goalTags[0].textContent, 'Messages');
   assert.ok(Number.parseFloat(bars[0].children[0].style.width) > 0);
@@ -192,6 +193,43 @@ test('tracker opens the campaign editor independently of the brief and focuses i
   assert.equal(app.elements.get('#tracker-editor-title').focused, true);
   assert.equal(app.editor.elements.namedItem('pageName').value, '');
   assert.equal(app.editor.elements.namedItem('createdLocal').value.length > 0, true);
+});
+
+test('explicit page and campaign renames persist and return focus to their actions', () => {
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertTrackedBoost(state, quickInput);
+  const { page, campaign } = tracker.findBoost(state, boost.id);
+  const app = setupTracker(state);
+  const open = (kind, id) => {
+    const button = app.groups.querySelectorAll('.button').find(item => item.dataset.focus === `rename-${kind}:${id}`);
+    button.listeners.click({ currentTarget: button });
+  };
+  open('page', page.id);
+  assert.equal(app.elements.get('#tracker-rename-name').focused, true);
+  assert.match(app.elements.get('#tracker-rename-help').textContent, /all campaigns and boosts/);
+  app.elements.get('#tracker-rename-name').value = 'New page';
+  app.elements.get('#tracker-rename').listeners.submit({ preventDefault() {} });
+  assert.equal(JSON.parse(app.stored.get(tracker.STORAGE_KEY)).pages[0].pageName, 'New page');
+  assert.equal(app.elements.get('#tracker-rename').hidden, true);
+  assert.equal(app.groups.querySelectorAll('.button').find(item => item.dataset.focus === `rename-page:${page.id}`).focused, true);
+  open('campaign', campaign.id);
+  app.elements.get('#tracker-rename-name').value = 'New campaign';
+  app.elements.get('#tracker-rename').listeners.submit({ preventDefault() {} });
+  assert.equal(JSON.parse(app.stored.get(tracker.STORAGE_KEY)).pages[0].campaigns[0].name, 'New campaign');
+});
+
+test('boost editor page name is read-only for edits but editable when adding', () => {
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertTrackedBoost(state, quickInput);
+  const app = setupTracker(state);
+  const edit = app.groups.querySelectorAll('.button').find(item => item.dataset.focus === `edit:${boost.id}`);
+  edit.listeners.click({ currentTarget: edit });
+  assert.equal(app.editor.elements.namedItem('pageName').readOnly, true);
+  assert.equal(app.elements.get('#tracker-page-edit-help').hidden, false);
+  const add = app.elements.get('#tracker-add');
+  add.listeners.click({ currentTarget: add });
+  assert.equal(app.editor.elements.namedItem('pageName').readOnly, false);
+  assert.equal(app.elements.get('#tracker-page-edit-help').hidden, true);
 });
 
 test('archive filter hides and restores cards, and budget excludes archived and cancelled boosts', () => {

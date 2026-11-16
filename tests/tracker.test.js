@@ -1,7 +1,7 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, mergeTrackerStates, removeBoost, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -246,19 +246,51 @@ test('simplified boost edit preserves existing client, campaign, status, link, a
   const before = findBoost(state, legacy.id);
   const originalPageId = before.page.id;
   const originalCampaignId = before.campaign.id;
-  const changed = upsertTrackedBoost(state, { ...quickInput, pageName: 'Cedar Bakery Updated', desiredAction: 'Visit your profile', budget: 70 }, legacy.id);
+  const changed = upsertTrackedBoost(state, { ...quickInput, pageName: 'Cedar Bakery', desiredAction: 'Visit your profile', budget: 70 }, legacy.id);
   const after = findBoost(state, legacy.id);
   assert.equal(changed.id, legacy.id);
   assert.equal(after.page.id, originalPageId);
   assert.equal(after.campaign.id, originalCampaignId);
   assert.equal(after.client.name, 'Client A');
   assert.equal(after.page.pageUrl, base.pageUrl);
-  assert.equal(after.page.pageName, 'Cedar Bakery Updated');
+  assert.equal(after.page.pageName, 'Cedar Bakery');
   assert.equal(after.boost.status, 'Paused');
   assert.equal(after.boost.postUrl, base.postUrl);
   assert.equal(after.boost.budget, 70);
   assert.equal(after.boost.createdAt, quickInput.createdAt);
   assert.equal(after.boost.desiredAction, 'Visit your profile');
+});
+
+test('explicit renames preserve relationships and reject duplicates and stale edits', () => {
+  const state = createTrackerState();
+  const first = upsertTrackedBoost(state, quickInput);
+  const second = upsertTrackedBoost(state, { ...quickInput, purpose: 'Second' });
+  const other = upsertTrackedBoost(state, { ...quickInput, pageName: 'Other page' });
+  const page = findBoost(state, first.id).page;
+  const campaign = findBoost(state, first.id).campaign;
+  const before = structuredClone(state);
+  assert.throws(() => renameTrackedEntity(state, 'page', page.id, 'Other page', page.pageName), /already exists/);
+  assert.throws(() => renameTrackedEntity(state, 'campaign', campaign.id, 'Second', campaign.name), /already exists/);
+  assert.throws(() => renameTrackedEntity(state, 'page', page.id, 'Changed', 'stale'), /another tab/);
+  assert.throws(() => renameTrackedEntity(state, 'page', page.id, '  ', page.pageName), /Enter a name/);
+  assert.deepEqual(state, before);
+  renameTrackedEntity(state, 'page', page.id, ' New page ', page.pageName);
+  renameTrackedEntity(state, 'campaign', campaign.id, 'New campaign', campaign.name);
+  assert.equal(findBoost(state, first.id).page.pageName, 'New page');
+  assert.equal(findBoost(state, second.id).page.pageName, 'New page');
+  assert.equal(findBoost(state, first.id).campaign.name, 'New campaign');
+  assert.equal(findBoost(state, first.id).boost.purpose, quickInput.purpose);
+  assert.equal(findBoost(state, other.id).page.pageName, 'Other page');
+  assert.deepEqual(importTracker(exportTracker(state)), state);
+});
+
+test('boost editing cannot silently rename a shared page or campaign', () => {
+  const state = createTrackerState();
+  const boost = upsertBoost(state, base);
+  const before = structuredClone(state);
+  assert.throws(() => upsertTrackedBoost(state, { ...quickInput, pageName: 'Changed' }, boost.id), /Rename the page/);
+  assert.throws(() => upsertBoost(state, { ...base, campaignName: 'Changed' }, boost.id), /Edit the campaign/);
+  assert.deepEqual(state, before);
 });
 
 test('existing and new boosts on the same page reuse a stable page relationship', () => {

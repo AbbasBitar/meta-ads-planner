@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-dashboard-v8';
+import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-renames-v9';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -300,6 +300,10 @@ function initTracker() {
   };
   let editorContext = {};
   let editorTrigger = null;
+  const renameForm = document.querySelector('#tracker-rename');
+  const renameName = document.querySelector('#tracker-rename-name');
+  const renameError = document.querySelector('#tracker-rename-error');
+  let renameContext = null;
   const findByFocus = key => {
     if (!key) return null;
     for (const button of groups.querySelectorAll?.('.button') ?? []) if (button.dataset.focus === key) return button;
@@ -310,6 +314,8 @@ function initTracker() {
     const trigger = editorTrigger;
     const triggerKey = trigger?.dataset?.focus ?? null;
     editor.reset();
+    editor.elements.namedItem('pageName').readOnly = false;
+    document.querySelector('#tracker-page-edit-help').hidden = true;
     setForm('boostId', '');
     editorContext = {};
     editor.hidden = true;
@@ -326,10 +332,13 @@ function initTracker() {
     catch { editor.elements.namedItem('endLocal').value = ''; }
   };
   const openEditor = (data = {}, trigger = null) => {
+    closeRename();
     editor.reset();
     setForm('boostId', '');
     editorContext = { pageUrl: data.pageUrl, postUrl: data.postUrl, campaignId: data.campaignId };
     for (const [key, value] of Object.entries(data)) setForm(key, value);
+    editor.elements.namedItem('pageName').readOnly = Boolean(data.boostId);
+    document.querySelector('#tracker-page-edit-help').hidden = !data.boostId;
     const nowLocal = isoToLocalInput(new Date().toISOString());
     if (!data.boostId && !data.createdLocal) setForm('createdLocal', nowLocal);
     if (!data.startLocal) setForm('startLocal', nowLocal);
@@ -342,6 +351,42 @@ function initTracker() {
   const makeButton = (label, action, focusKey = '') => {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-secondary'; button.textContent = label; if (focusKey) button.dataset.focus = focusKey; button.addEventListener('click', action); return button;
   };
+  function closeRename(restoreFocus = false) {
+    const key = renameContext?.focusKey;
+    renameContext = null;
+    renameForm.hidden = true;
+    renameError.hidden = true;
+    renameError.textContent = '';
+    if (restoreFocus) (findByFocus(key) ?? document.querySelector('#tracker-heading')).focus({ preventScroll: true });
+  }
+  function openRename(kind, entity, trigger) {
+    resetEditor();
+    renameContext = { kind, id: entity.id, originalName: kind === 'page' ? entity.pageName : entity.name, focusKey: trigger.dataset.focus };
+    renameName.value = renameContext.originalName;
+    renameError.hidden = true;
+    renameError.textContent = '';
+    document.querySelector('#tracker-rename-title').textContent = kind === 'page' ? 'Rename page' : 'Rename campaign';
+    document.querySelector('#tracker-rename-help').textContent = kind === 'page'
+      ? 'This changes the page name for all campaigns and boosts on this page, including archived boosts. The handle and client do not change.'
+      : 'This changes the campaign name for all boosts in this campaign, including archived boosts. Individual boost purposes do not change.';
+    renameForm.hidden = false;
+    renameForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    renameName.focus({ preventScroll: true });
+  }
+  renameForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!renameContext) return;
+    try {
+      const next = cloneState();
+      renameTrackedEntity(next, renameContext.kind, renameContext.id, renameName.value, renameContext.originalName);
+      if (commit(next, `${renameContext.kind === 'page' ? 'Page' : 'Campaign'} renamed.`)) closeRename(true);
+    } catch (error) {
+      renameError.textContent = error.message;
+      renameError.hidden = false;
+      renameName.focus();
+    }
+  });
+  document.querySelector('#tracker-rename-cancel').addEventListener('click', () => closeRename(true));
   function render() {
     const focusKey = document.activeElement?.dataset?.focus ?? null;
     clock = Date.now();
@@ -368,6 +413,9 @@ function initTracker() {
     for (const page of filtered) {
       const section = document.createElement('section'); section.className = 'tracker-page-group';
       const heading = document.createElement('h3'); heading.textContent = page.clientName === 'Tracked pages' ? page.pageName : `${page.clientName} · ${page.pageName}`; section.append(heading);
+      const renamePage = makeButton('Rename page', event => openRename('page', page, event.currentTarget), `rename-page:${page.id}`);
+      renamePage.setAttribute('aria-label', `Rename page ${page.pageName}`);
+      section.append(renamePage);
       let planned = 0;
       for (const campaign of page.campaigns) {
         const campaignSection = document.createElement('div'); campaignSection.className = 'tracker-campaign';
@@ -377,7 +425,11 @@ function initTracker() {
         if (campaign.goal) { const goal = document.createElement('span'); goal.className = 'campaign-goal'; goal.textContent = campaign.goal; campaignInfo.append(goal); }
         const addBoost = makeButton('Add boost', event => openEditor({ pageName: page.pageName, pageUrl: page.pageUrl, campaignId: campaign.id, purpose: campaign.name, desiredAction: '' }, event.currentTarget), `add-boost:${campaign.id}`);
         addBoost.className = 'button button-secondary campaign-add-button';
-        campaignHeading.append(campaignInfo, addBoost);
+        const renameCampaign = makeButton('Rename campaign', event => openRename('campaign', campaign, event.currentTarget), `rename-campaign:${campaign.id}`);
+        renameCampaign.setAttribute('aria-label', `Rename campaign ${campaign.name} on ${page.pageName}`);
+        const campaignActions = document.createElement('div'); campaignActions.className = 'campaign-actions';
+        campaignActions.append(renameCampaign, addBoost);
+        campaignHeading.append(campaignInfo, campaignActions);
         campaignSection.append(campaignHeading);
         for (const boost of campaign.boosts) {
           const start = Date.parse(boost.startAt), end = Date.parse(boost.endAt), status = scheduleStatus(boost, clock);
@@ -539,6 +591,7 @@ function initTracker() {
       setUndo(previous);
       closeImportReview();
       resetEditor();
+      closeRename();
       focusTrackerHeading();
     }
   };
