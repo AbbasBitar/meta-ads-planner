@@ -4,5 +4,221 @@
 .tracker-campaign{border:1px solid var(--line);border-radius:12px;padding:13px;margin:10px 0}.campaign-heading{display:flex;align-items:center;gap:10px;margin-bottom:8px}.campaign-heading h4{margin:0;font-size:14px}.campaign-heading span{margin-right:auto;color:var(--muted);font-size:12px}.campaign-heading .button{min-height:34px;padding-inline:11px;font-size:12px}.tracker-campaign .boost-card{margin:8px 0 0;background:#fbfcfa}
 @media(max-width:650px){.campaign-heading{align-items:flex-start;flex-wrap:wrap}.campaign-heading h4{width:100%}.campaign-heading span{margin-right:auto}}
 
-.tracker-controls{display:flex;justify-content:flex-end;margin:-6px 0 12px}.tracker-controls .button{min-height:40px;padding-inline:15px;font-size:12px}.tracker-import-review{background:#fff8ec;border:1px solid #e8cfa8;border-radius:12px;padding:14px;margin:4px 0 14px}.tracker-import-review p{font-size:13px;line-height:1.55;margin:0 0 12px;color:var(--ink)}.tracker-import-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.tracker-import-actions .button{min-height:38px;padding-inline:14px;font-size:12px;flex:0 0 auto}
-.button-danger{background:#8a2f24;border-color:#8a2f24;color:#fff}.button-danger:hover{background:#71261d;border-color:#71261d}
+/* Campaign Tracker dashboard refresh */
+.tracker-panel{padding:30px 32px 24px}
+.tracker-heading{align-items:center;gap:16px;margin-bottom:24px}
+.tracker-heading-copy{flex:1;min-width:0}
+.tracker-heading-copy .eyebrow{margin:0 0 5px;font-size:10px}
+.tracker-heading-copy h2{font-size:24px;margin:0 0 6px}
+.tracker-heading-copy>p:last-child{line-height:1.5}
+.tracker-add{flex-shrink:0;white-space:nowrap}
+.tracker-toolbar{grid-template-columns:minmax(200px,1.65fr) repeat(3,minmax(120px,1fr));gap:12px;align-items:end;padding:16px;background:#f8faf8;border:1px solid var(--line);border-radius:12px}
+.tracker-toolbar label{margin:0;font-size:12px;color:var(--muted)}
+.tracker-toolbar input,.tracker-toolbar select{height:43px;margin-top:6px;padding:9px 11px;background:#fff;text-overflow:ellipsis}
+.tracker-message:empty{min-height:0;margin:0}
+.tracker-empty{min-height:250px;padding:30px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:11px}
+.tracker-empty-icon{width:56px;height:56px;display:grid;place-items:center;background:var(--mint);border-radius:16px;color:var(--green);font-size:30px;line-height:1}
+.tracker-empty h3{margin:3px 0 0;font-size:19px;letter-spacing:-.02em}
+.tracker-empty p{margin:0 0 6px;max-width:390px;color:var(--muted);font-size:13px;line-height:1.65}
+.tracker-backup{gap:10px;margin-top:8px;padding-top:16px}
+.tracker-backup-title{font-weight:700;font-size:12px;color:var(--ink);margin-right:auto}
+.tracker-backup .button{min-height:38px;padding:0 12px}
+.tracker-backup-note{flex-basis:100%;font-size:11px;color:var(--muted);line-height:1.5}
+.tracker-campaign{padding:12px 0}
+@media(max-width:700px){
+ .tracker-panel{padding:22px 17px}
+ .tracker-heading{align-items:flex-start;flex-wrap:wrap}
+ .tracker-heading-copy h2{font-size:21px}
+ .tracker-add{width:100%}
+ .tracker-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
+ .tracker-toolbar label:first-child{grid-column:1/-1}
+ .tracker-empty{min-height:225px;padding:24px 12px}
+ .tracker-backup-title{flex-basis:100%}
+}
+@media(max-width:390px){.tracker-toolbar{grid-template-columns:1fr}.tracker-toolbar label:first-child{grid-column:auto}}
+
+/* Campaign cards: structured title block and consistently padded actions */
+#tracker .tracker-campaign {
+  min-width: 0;
+  padding: 20px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcfa;
+}
+#tracker .campaign-heading {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) max-content;
+  gap: 20px;
+  align-items: center;
+  padding: 0 0 16px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+#tracker .campaign-heading-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+#tracker .campaign-heading-copy h4 {
+  margin: 0;
+  width: auto;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+#tracker .campaign-heading-copy .campaign-goal {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+#tracker .campaign-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 2;
+  min-height: 42px;
+  padding: 9px 16px;
+  margin: 0;
+  white-space: nowrap;
+}
+#tracker .tracker-campaign .boost-card {
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+#tracker .boost-card p {line-height: 1.55}
+#tracker .boost-actions {display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+#tracker .boost-actions .button {min-height:38px;padding:8px 14px}
+.prompt-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.prompt-actions .button {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 18px;white-space:nowrap}
+.prompt-actions #copy-status {flex-basis:100%;line-height:1.5}
+@media(max-width:650px){
+  #tracker .tracker-campaign {padding:14px}
+  #tracker .campaign-heading {grid-template-columns:minmax(0,1fr);gap:12px}
+  #tracker .campaign-add-button {grid-column:1;justify-self:start}
+  #tracker .tracker-campaign .boost-card {padding:14px}
+  #tracker .boost-actions .button {flex:1 1 auto}
+  .prompt-actions .button {flex:1 1 100%;width:100%}
+}
+
+
+/* Compact, self-contained backup toolbar (v3) */
+#tracker .tracker-backup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  margin-top: 24px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8faf8;
+}
+#tracker .tracker-backup-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#tracker .tracker-backup-title {
+  flex: none;
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+#tracker .tracker-backup-note {
+  flex: none;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+#tracker .tracker-backup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+#tracker .tracker-backup-actions .button {
+  margin: 0;
+  min-height: 42px;
+  padding: 9px 15px;
+  border-radius: 9px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+#tracker .import-button:focus-within {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  #tracker .tracker-backup {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+  #tracker .tracker-backup-actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 480px) {
+  #tracker .tracker-backup-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  #tracker .tracker-backup-actions .button {
+    flex: 0 0 auto;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Simplified boost editor (v4): only user-requested tracking fields */
+#tracker .tracker-quick-editor {padding:24px;background:#f8faf8;border:1px solid var(--line);border-radius:14px}
+#tracker .tracker-editor-heading {margin-bottom:20px}
+#tracker .tracker-editor-heading h3 {margin:0 0 6px;font-size:19px;letter-spacing:-.02em}
+#tracker .tracker-editor-heading p {margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+#tracker .tracker-quick-editor .field-grid {gap:0 18px}
+#tracker .tracker-quick-editor label {font-size:13px;margin-bottom:17px}
+#tracker .tracker-quick-editor input,
+#tracker .tracker-quick-editor select {min-height:46px}
+#tracker .tracker-quick-editor input[readonly] {background:#edf3ee;color:var(--green);cursor:not-allowed}
+#tracker .tracker-quick-editor .tracker-time-note {margin:2px 0 18px;line-height:1.6}
+#tracker .tracker-editor-actions {gap:10px}
+#tracker .tracker-editor-actions .button {min-height:42px;padding:9px 18px}
+@media(max-width:650px){
+  #tracker .tracker-quick-editor {padding:18px 14px}
+  #tracker .tracker-quick-editor .field-grid {grid-template-columns:1fr}
+  #tracker .tracker-quick-editor .field-grid .span-2 {grid-column:1}
+  #tracker .tracker-editor-actions .button {flex:1}
+}
+
+/* Safe backup import review and focus management (v5) */
+.button-danger{background:#8a2f24;border-color:#8a2f24;color:#fff}
+.button-danger:hover{background:#71261d;border-color:#71261d}
+#tracker .tracker-import-review{display:grid;gap:12px;margin:0 0 18px;padding:16px 18px;border:1px solid #e3c9a4;border-radius:12px;background:#fff8ec}
+#tracker .tracker-import-review[hidden]{display:none}
+#tracker .tracker-import-review p{margin:0;color:var(--ink);font-size:13px;line-height:1.6}
+#tracker .tracker-import-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+#tracker .tracker-import-actions .button{min-height:40px;padding:8px 14px;flex:0 0 auto}
+#tracker-heading:focus,#tracker-editor-title:focus,#tracker-import-summary:focus{outline:2px solid var(--green);outline-offset:4px;border-radius:4px}
+@media(max-width:480px){#tracker .tracker-import-actions{flex-direction:column;align-items:stretch}#tracker .tracker-import-actions .button{width:100%}}

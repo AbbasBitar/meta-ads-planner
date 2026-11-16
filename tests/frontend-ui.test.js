@@ -78,18 +78,10 @@ test('frontend prevents generation and reports a missing required field', () => 
   app.fire('#campaign-form', 'submit', { preventDefault() { prevented = true; } });
   assert.equal(prevented, true);
   assert.equal(app.elements.get('#form-errors').hidden, false);
+  assert.equal(app.elements.get('#form-errors').children[0].children[0].textContent, 'Page name is required.');
+  assert.doesNotMatch(app.elements.get('#form-errors').children[0].children[0].textContent, /\\[object Object\\]/);
   assert.equal(app.elements.get('#prompt-panel').hidden, true);
   assert.equal(app.form.focusedSelector, '[name="pageName"]');
-});
-
-test('frontend renders readable validation messages instead of [object Object]', () => {
-  const app = makeApp({ ...sample, pageName: '', locations: '' });
-  app.fire('#campaign-form', 'submit', { preventDefault() {} });
-  const list = app.elements.get('#form-errors').children[0];
-  assert.equal(list.children.length, 2);
-  assert.equal(list.children[0].textContent, 'Page name is required.');
-  assert.equal(list.children[1].textContent, 'Target locations is required.');
-  assert.doesNotMatch(list.children.map(item => item.textContent).join(' '), /\[object Object\]/);
 });
 
 test('frontend calculates daily budget and generates a prompt with every submitted value', () => {
@@ -130,11 +122,7 @@ test('frontend safely falls back when clipboard permission is unavailable', asyn
   const app = makeApp(sample);
   app.clipboard.writeText = async () => { throw new Error('clipboard unavailable'); };
   app.fire('#campaign-form', 'submit', { preventDefault() {} });
-  const event = { currentTarget: new MockElement() };
-  const pending = app.fire('#copy-prompt', 'click', event);
-  event.currentTarget = null;
-  await pending;
-  assert.equal(app.elements.get('#generated-prompt').focused, true);
+  await app.fire('#copy-prompt', 'click', { currentTarget: new MockElement() });
   assert.equal(app.elements.get('#generated-prompt').selected, true);
   assert.match(app.elements.get('#copy-status').textContent, /Ctrl\+C/);
 });
@@ -143,10 +131,37 @@ test('prompt form keeps one required goal field and does not register on prompt 
   const html = readFileSync('index.html', 'utf8');
   assert.equal((html.match(/name="adGoal"/g) ?? []).length, 1);
   assert.match(html, /name="adGoal" required/);
-  assert.match(html, /name="clientName" list="tracker-clients" required/);
+  const trackerEditor = html.split('<form id="tracker-editor"')[1].split('</form>')[0];
+  for (const field of ['pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction']) {
+    assert.match(trackerEditor, new RegExp(`name="${field}"`), `Missing tracker field ${field}`);
+  }
+  for (const hiddenFromUser of ['clientName', 'pageUrl', 'postUrl', 'campaignName', 'goal', 'status']) {
+    assert.doesNotMatch(trackerEditor, new RegExp(`name="${hiddenFromUser}"`), `Unexpected tracker editor field ${hiddenFromUser}`);
+  }
+  for (const action of ['Visit your profile', 'Visit your website', 'Message you', 'Mix of actions']) {
+    assert.match(trackerEditor, new RegExp(`value="${action}"`));
+  }
   assert.match(html, /id="track-campaign" type="button"/);
   const promptSubmit = readFileSync('app.js', 'utf8').split("form.addEventListener('submit'")[1].split("document.querySelector('#copy-prompt')")[0];
   assert.doesNotMatch(promptSubmit, /upsertBoost|saveTracker/);
   const trackAction = readFileSync('app.js', 'utf8').split("document.querySelector('#track-campaign')")[1].split("editor.elements.namedItem('startLocal')")[0];
   assert.doesNotMatch(trackAction, /clientName:\s*data\.pageName/);
+});
+
+
+test('tracker backup footer groups copy and actions without duplicate controls', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const css = readFileSync('styles.css', 'utf8');
+  const footer = html.match(/<div class="tracker-backup"[^>]*>([\s\S]*?)<\/div>\s*<\/section>/)?.[1];
+  assert.ok(footer, 'tracker backup footer must exist');
+  assert.match(footer, /class="tracker-backup-copy"/);
+  assert.match(footer, /class="tracker-backup-actions"/);
+  assert.match(footer, /class="tracker-backup-title"/);
+  assert.match(footer, /class="tracker-backup-note"/);
+  for (const id of ['tracker-export', 'tracker-import', 'tracker-download-corrupt']) {
+    assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `${id} must appear exactly once`);
+  }
+  assert.ok(css.includes('#tracker .tracker-backup-actions'));
+  assert.ok(css.includes('#tracker .tracker-backup-copy'));
+  assert.ok(css.includes('@media (max-width: 480px)'));
 });

@@ -2,7 +2,9 @@
 
 A simple campaign brief builder. The page validates campaign details, calculates a daily budget, and generates a structured prompt for the user to copy into ChatGPT.
 
-The Campaign Tracker stores planned boosts in this browser's local storage. It groups boosts by client and page, supports multiple overlapping boosts for the same post, and can export or restore a JSON backup. Start times are entered in the browser's local timezone and stored as ISO 8601 UTC timestamps. Durations are elapsed 24-hour periods. Scheduled, Active, and Completed labels describe the saved plan only; they do not indicate whether Meta has delivered an ad.
+The Campaign Tracker stores planned boosts in this browser's local storage. The simplified boost editor asks for page name, boost creation date/time, planned start date/time, automatically calculated end date/time, budget, duration, boost purpose, and desired ad action (Visit your profile, Visit your website, Message you, or Mix of actions). The **+ Add campaign** action opens the editor without a campaign brief. Saving from **Track Campaign** reuses an existing page by its handle or URL and an existing campaign with the same purpose, so repeated saves do not duplicate records. Creation dates are user-entered and do not prove Meta delivery; historical boosts without a recorded creation date remain intact and require the date when next edited. The existing client/page/campaign relationships are retained internally, supporting multiple boosts and JSON backup/restore without losing older data. Dates are stored as ISO 8601 UTC timestamps; durations are elapsed 24-hour periods. Scheduled, Active, and Completed labels describe the saved plan only.
+
+Imported backups are validated and previewed before anything is written. Choose **Merge into current data** to keep existing records and add new ones, **Replace all data** to discard the current tracker first, or **Cancel** to leave everything unchanged. After a merge or replace, **Undo import** restores the previous tracker data until the next tracker change.
 
 ## How it works
 
