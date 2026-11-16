@@ -389,18 +389,23 @@ export function findBoost(state, boostId) {
   return null;
 }
 
-export function filterBoosts(state, { query = '', pageUrl = '', status = '', ending = '', now = Date.now() } = {}) {
+export function filterBoosts(state, { query = '', pageUrl = '', status = '', ending = '', archived = 'hide', now = Date.now() } = {}) {
   const needle = query.trim().toLocaleLowerCase();
   const terms = needle ? needle.split(/\s+/) : [];
   return state.pages.map(page => {
     const client = state.clients.find(item => item.id === page.clientId);
     const campaigns = page.campaigns.map(campaign => ({ ...campaign, boosts: campaign.boosts.filter(boost => {
+      if (archived === 'hide' && boost.archived) return false;
+      if (archived === 'only' && !boost.archived) return false;
       if (pageUrl && page.pageUrl !== pageUrl) return false;
       if (status && scheduleStatus(boost, now) !== status) return false;
       if (ending === 'soon' && (parseInstant(boost.endAt) <= now || parseInstant(boost.endAt) > now + ENDING_SOON_MS)) return false;
       const searchable = [client?.name, page.pageName, page.pageUrl, campaign.name, campaign.goal, boost.postUrl, boost.goal, boost.purpose, boost.desiredAction].join(' ').toLocaleLowerCase();
       if (terms.some(term => !searchable.includes(term))) return false;
       return true;
+    }).sort((a, b) => {
+      const rank = boost => ({ Active: 0, Scheduled: 1, Paused: 2, Completed: 3, Cancelled: 4 })[scheduleStatus(boost, now)];
+      return rank(a) - rank(b) || parseInstant(a.startAt) - parseInstant(b.startAt);
     }) })).filter(campaign => campaign.boosts.length);
     return { ...page, clientName: client?.name ?? '', campaigns };
   }).filter(page => page.campaigns.length);

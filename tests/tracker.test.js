@@ -122,6 +122,27 @@ test('filters search client, page and campaign and apply status', () => {
   assert.equal(matches[0].campaigns[0].boosts[0].id, active.id);
 });
 
+test('archive filters hide archived boosts by default and can show or isolate them', () => {
+  const state = createTrackerState();
+  const first = addBoost(state, base);
+  const second = addBoost(state, { ...base, budget: 200 });
+  second.archived = true;
+  const ids = options => filterBoosts(state, options).flatMap(page => page.campaigns.flatMap(campaign => campaign.boosts.map(boost => boost.id)));
+  assert.deepEqual(ids({}), [first.id]);
+  assert.deepEqual(new Set(ids({ archived: 'all' })), new Set([first.id, second.id]));
+  assert.deepEqual(ids({ archived: 'only' }), [second.id]);
+});
+
+test('boosts sort active first, then upcoming by start date without mutating stored order', () => {
+  const state = createTrackerState();
+  const future = addBoost(state, { ...base, startAt: '2026-02-10T12:00:00.000Z' });
+  const active = addBoost(state, base);
+  const soon = addBoost(state, { ...base, startAt: '2026-02-04T12:00:00.000Z' });
+  const result = filterBoosts(state, { now: Date.parse('2026-02-02T12:00:00.000Z') });
+  assert.deepEqual(result[0].campaigns[0].boosts.map(boost => boost.id), [active.id, soon.id, future.id]);
+  assert.deepEqual(state.pages[0].campaigns[0].boosts.map(boost => boost.id), [future.id, active.id, soon.id]);
+});
+
 test('v1 backups migrate into clients, pages, campaigns, and boosts with stable IDs', () => {
   const legacy = { version: 1, pages: [{ id: 'page-old', clientName: 'Legacy Client', pageName: 'Legacy Page', pageUrl: '@legacy', boosts: [{ id: 'boost-old', postUrl: '', goal: 'Reach', budget: 50, durationDays: 2, startAt: '2026-01-01T00:00:00.000Z', endAt: '2026-01-03T00:00:00.000Z', status: 'Scheduled', archived: false }] }] };
   const imported = importTracker(JSON.stringify(legacy));
