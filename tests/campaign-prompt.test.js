@@ -85,7 +85,12 @@ test('v2 has no submission, Telegram, API key, or campaign-data URL behavior', (
   assert.doesNotMatch(html, /\/api\/submit|telegram|openrouter|turnstile/i);
   assert.match(html, /href="https:\/\/chatgpt\.com\/"/);
   assert.doesNotMatch(html, /href="https:\/\/chatgpt\.com\/[^"]*[?&]/);
-  assert.doesNotMatch(app, /window\.open|location\.href|location\.assign/);
+  assert.doesNotMatch(app, /location\.href|location\.assign/);
+  const externalOpens = app.match(/window\.open\(([^)]*)\)/g) ?? [];
+  for (const externalOpen of externalOpens) {
+    assert.match(externalOpen, /window\.open\('https:\/\/chatgpt\.com\/', '_blank'\)/);
+    assert.doesNotMatch(externalOpen, /[?&]|campaign|prompt/i);
+  }
 });
 
 test('the small-screen layout collapses fields and choices responsively', () => {

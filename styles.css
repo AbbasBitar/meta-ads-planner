@@ -222,3 +222,19 @@
 #tracker .tracker-import-actions .button{min-height:40px;padding:8px 14px;flex:0 0 auto}
 #tracker-heading:focus,#tracker-editor-title:focus,#tracker-import-summary:focus{outline:2px solid var(--green);outline-offset:4px;border-radius:4px}
 @media(max-width:480px){#tracker .tracker-import-actions{flex-direction:column;align-items:stretch}#tracker .tracker-import-actions .button{width:100%}}
+
+/* P1 prompt freshness, inline validation, and storage lifecycle (v6) */
+.field-error{display:block;margin-top:6px;color:#9d392c;font-size:12px;font-weight:600;line-height:1.45}
+.field-error[hidden]{display:none}
+input[aria-invalid="true"],select[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:#b85141;background:#fff8f6}
+input[aria-invalid="true"]:focus,select[aria-invalid="true"]:focus,textarea[aria-invalid="true"]:focus{border-color:#a33f30;box-shadow:0 0 0 3px #b8514126}
+.choice input[aria-invalid="true"]+span{border-color:#b85141;background:#fff5f2;color:#8a2f24}
+.form-errors a{color:inherit;text-decoration:underline;text-underline-offset:2px;font-weight:650}
+.form-errors a:hover{color:#6f241b}
+.prompt-stale{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 16px;padding:13px 15px;border:1px solid #e3c9a4;border-radius:11px;background:#fff8ec}
+.prompt-stale[hidden]{display:none}
+.prompt-stale p{margin:0;color:#6d4513;font-size:13px;line-height:1.55}
+.prompt-stale .button{flex:none;min-height:40px;padding:8px 14px;background:#fff;border-color:#d9b98c;color:#6d4513}
+.ready-badge.is-stale{background:#fff1dc;color:#8a4b12}
+.prompt-actions .button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:650px){.prompt-stale{flex-direction:column;align-items:stretch}.prompt-stale .button{width:100%}}

@@ -1,12 +1,25 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-safe-import-v5';
+import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-p1-ux-v6';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
 const promptPanel = document.querySelector('#prompt-panel');
+const promptHeading = document.querySelector('#prompt-heading');
 const promptOutput = document.querySelector('#generated-prompt');
+const promptBadge = document.querySelector('#prompt-badge');
+const promptStale = document.querySelector('#prompt-stale');
+const promptStaleMessage = document.querySelector('#prompt-stale-message');
 const copyStatus = document.querySelector('#copy-status');
+const copyPromptButton = document.querySelector('#copy-prompt');
+const copyOpenButton = document.querySelector('#copy-open-chatgpt');
+const regenerateButton = document.querySelector('#regenerate-prompt');
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+const fieldErrorNodes = new Map();
+const summaryItems = new Map();
+let activeProblems = [];
+let promptSignature = null;
+let promptIsStale = false;
 
 function getFormData() {
   const data = Object.fromEntries(new FormData(form).entries());
@@ -34,50 +47,202 @@ function updateBudget() {
   daily.textContent = `${money.format(calculateBudget(data).daily)} per day`;
 }
 
-function showErrors(messages) {
+function fieldControls(field) {
+  return Array.from(form.querySelectorAll(`[name="${field}"]`));
+}
+
+function focusField(field) {
+  const control = fieldControls(field)[0];
+  if (!control) return;
+  control.focus();
+  control.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+}
+
+function getFieldError(field) {
+  const existing = fieldErrorNodes.get(field);
+  if (existing) return existing;
+  const controls = fieldControls(field);
+  if (!controls.length) return null;
+  const fieldset = controls[0].closest?.('fieldset');
+  const container = fieldset ?? controls[0].closest?.('label, fieldset') ?? controls[0].parentElement;
+  if (!container) return null;
+  const node = document.createElement('span');
+  node.className = 'field-error';
+  node.id = `field-error-${field}`;
+  node.hidden = true;
+  container.append(node);
+  const entry = { controls, node, errorId: node.id };
+  fieldErrorNodes.set(field, entry);
+  return entry;
+}
+
+function clearFieldPresentation(entry) {
+  entry.node.hidden = true;
+  entry.node.textContent = '';
+  for (const control of entry.controls) {
+    control.removeAttribute('aria-invalid');
+    const describedBy = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(id => id && id !== entry.errorId);
+    if (describedBy.length) control.setAttribute('aria-describedby', describedBy.join(' '));
+    else control.removeAttribute('aria-describedby');
+  }
+}
+
+function renderErrorSummary() {
   errors.replaceChildren();
-  if (!messages.length) {
+  summaryItems.clear();
+  if (!activeProblems.length) {
     errors.hidden = true;
     return;
   }
   const list = document.createElement('ul');
-  for (const message of messages) {
+  for (const problem of activeProblems) {
     const item = document.createElement('li');
-    item.textContent = typeof message === 'string' ? message : message?.message ?? 'Please check this field.';
+    if (problem.field) {
+      const control = fieldControls(problem.field)[0];
+      const link = document.createElement('a');
+      if (control) {
+        if (!control.id) control.id = `field-${problem.field}`;
+        link.href = `#${control.id}`;
+      }
+      link.textContent = problem.message;
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        focusField(problem.field);
+      });
+      item.append(link);
+      const items = summaryItems.get(problem.field) ?? [];
+      items.push(item);
+      summaryItems.set(problem.field, items);
+    } else {
+      item.textContent = problem.message;
+    }
     list.append(item);
   }
   errors.append(list);
   errors.hidden = false;
 }
 
-form.addEventListener('input', updateBudget);
-form.addEventListener('change', updateBudget);
-form.addEventListener('submit', event => {
-  event.preventDefault();
+function showErrors(messages) {
+  for (const entry of fieldErrorNodes.values()) clearFieldPresentation(entry);
+  activeProblems = messages.map(message => typeof message === 'string'
+    ? { field: '', message }
+    : { field: message?.field ?? '', message: message?.message ?? 'Please check this field.' });
+  for (const problem of activeProblems) {
+    if (!problem.field) continue;
+    const entry = getFieldError(problem.field);
+    if (!entry) continue;
+    entry.node.textContent = problem.message;
+    entry.node.hidden = false;
+    for (const control of entry.controls) {
+      control.setAttribute('aria-invalid', 'true');
+      const describedBy = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+      if (!describedBy.includes(entry.errorId)) describedBy.push(entry.errorId);
+      control.setAttribute('aria-describedby', describedBy.join(' '));
+    }
+  }
+  renderErrorSummary();
+}
+
+function clearFieldError(field) {
+  const entry = fieldErrorNodes.get(field);
+  if (entry) clearFieldPresentation(entry);
+  const items = summaryItems.get(field) ?? [];
+  for (const item of items) item.hidden = true;
+  summaryItems.delete(field);
+  const remaining = activeProblems.filter(problem => problem.field !== field);
+  if (remaining.length === activeProblems.length) return;
+  activeProblems = remaining;
+  if (!activeProblems.length) errors.hidden = true;
+}
+
+function promptDataSignature() {
+  return JSON.stringify(getFormData());
+}
+
+function setPromptStale(isStale) {
+  if (isStale === promptIsStale) return;
+  promptIsStale = isStale;
+  promptStale.hidden = !isStale;
+  promptBadge.textContent = isStale ? 'Out of date' : 'Generated';
+  promptBadge.className = isStale ? 'ready-badge is-stale' : 'ready-badge';
+  copyPromptButton.disabled = isStale;
+  copyOpenButton.disabled = isStale;
+  if (isStale) promptStaleMessage.textContent = 'The brief changed after this prompt was generated. Regenerate it to include your latest edits before copying.';
+  else promptStaleMessage.textContent = '';
+}
+
+function updatePromptFreshness() {
+  if (promptPanel.hidden || promptSignature === null) return;
+  setPromptStale(promptDataSignature() !== promptSignature);
+}
+
+function generatePrompt() {
   const data = getFormData();
   const problems = validateCampaign(data);
   showErrors(problems);
   if (problems.length) {
-    form.querySelector(`[name="${problems[0].field}"]`)?.focus();
-    return;
+    focusField(problems[0].field);
+    return false;
   }
   promptOutput.value = generateChatGPTPrompt(data);
+  promptSignature = JSON.stringify(data);
+  setPromptStale(false);
   promptPanel.hidden = false;
   copyStatus.textContent = '';
+  promptHeading.focus({ preventScroll: true });
   promptPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
+  return true;
+}
 
-document.querySelector('#copy-prompt').addEventListener('click', async event => {
-  const button = event.currentTarget;
+async function copyPrompt(button) {
   try {
     await navigator.clipboard.writeText(promptOutput.value);
     copyStatus.textContent = 'Prompt copied. Paste it into ChatGPT when ready.';
     button.focus();
+    return true;
   } catch {
     promptOutput.focus();
     promptOutput.select();
     copyStatus.textContent = 'Clipboard access is unavailable. The prompt is selected; copy it with Ctrl+C or Command+C.';
+    return false;
   }
+}
+
+function handleFormUpdate(event) {
+  const field = event?.target?.name;
+  if (field) clearFieldError(field);
+  updateBudget();
+  updatePromptFreshness();
+}
+
+form.addEventListener('input', handleFormUpdate);
+form.addEventListener('change', handleFormUpdate);
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  generatePrompt();
+});
+
+copyPromptButton.addEventListener('click', event => {
+  if (promptIsStale) return;
+  return copyPrompt(event.currentTarget);
+});
+
+regenerateButton.addEventListener('click', generatePrompt);
+
+copyOpenButton.addEventListener('click', async event => {
+  if (promptIsStale) return;
+  const button = event.currentTarget;
+  let popup = null;
+  try { popup = window.open('https://chatgpt.com/', '_blank'); } catch { popup = null; }
+  if (popup) popup.opener = null;
+  const copied = await copyPrompt(button);
+  if (!copied) {
+    if (popup) copyStatus.textContent = 'ChatGPT opened in a new tab, but clipboard access is unavailable. The prompt is selected; copy it with Ctrl+C or Command+C and paste it there.';
+    return;
+  }
+  copyStatus.textContent = popup
+    ? 'Prompt copied and ChatGPT opened in a new tab. Paste and submit it there.'
+    : 'Prompt copied. Your browser blocked the new tab; use the Open ChatGPT link above.';
 });
 
 function initTracker() {
@@ -286,7 +451,7 @@ function initTracker() {
   document.querySelector('#tracker-add')?.addEventListener('click', event => openEditor({}, event.currentTarget));
   document.querySelector('#track-campaign').addEventListener('click', event => {
     const data = getFormData(); const problems = validateCampaign(data); showErrors(problems);
-    if (problems.length) { form.querySelector(`[name="${problems[0].field}"]`)?.focus(); return; }
+    if (problems.length) { focusField(problems[0].field); return; }
     const actionByGoal = { 'More messages': 'Message you', 'More profile visits': 'Visit your profile', 'More website visits': 'Visit your website' };
     const purpose = String(data.products || '').slice(0, 160);
     const existingPage = state.pages.find(page => pageKey(page.pageUrl) === pageKey(data.pageUrl));
@@ -380,10 +545,59 @@ function initTracker() {
       showMessage(`Could not restore backup: ${error.message}. Existing saved data was left unchanged.`);
     } finally { input.value = ''; }
   });
+  const syncFromStorage = () => {
+    let next;
+    try {
+      if (!storage) storage = window.localStorage;
+      next = loadTracker(storage);
+    } catch (error) {
+      storageError = error;
+      try { damagedRaw = storage?.getItem(STORAGE_KEY) ?? null; } catch { /* keep the original storage error */ }
+      damagedDownload.hidden = !damagedRaw;
+      showMessage(`${error.message} The tracker still shows the last valid data loaded in this tab.`);
+      return;
+    }
+    state = next;
+    storageError = null;
+    damagedRaw = null;
+    damagedDownload.hidden = true;
+    setUndo(null);
+    const editingId = editor.hidden ? '' : editor.elements.namedItem('boostId')?.value ?? '';
+    render();
+    if (editingId && !findBoost(state, editingId)) {
+      resetEditor();
+      showMessage('Campaign tracker updated in another tab. The boost you were editing was removed, so the editor was closed.');
+    } else {
+      showMessage('Campaign tracker updated in another tab.');
+    }
+    if (pendingImport && !importReview.hidden) {
+      importSummary.textContent = `This backup contains ${formatCounts(trackerCounts(pendingImport))}. The tracker currently contains ${formatCounts(trackerCounts(state))}. Merge keeps existing records and adds new ones; replace deletes all current tracker data.`;
+    }
+  };
+  window.addEventListener('storage', event => {
+    if (event.key !== STORAGE_KEY && event.key !== null) return;
+    if (storage && event.storageArea && event.storageArea !== storage) return;
+    syncFromStorage();
+  });
+  let refreshTimer = null;
+  const stopRefreshTimer = () => {
+    if (refreshTimer === null) return;
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  };
+  const startRefreshTimer = () => {
+    stopRefreshTimer();
+    refreshTimer = window.setInterval(render, COUNTDOWN_REFRESH_MS);
+  };
+  window.addEventListener('pagehide', stopRefreshTimer);
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted) return;
+    render();
+    startRefreshTimer();
+  });
   if (storageError) showMessage(`${storageError.message} Existing stored data has not been changed; download it or restore a valid backup.`);
   render();
-  const refreshTimer = window.setInterval(render, COUNTDOWN_REFRESH_MS);
-  window.addEventListener('pagehide', () => window.clearInterval(refreshTimer), { once: true });
+  startRefreshTimer();
 }
 updateBudget();
 initTracker();

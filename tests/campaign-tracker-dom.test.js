@@ -92,7 +92,9 @@ function setupTracker(state = tracker.createTrackerState()) {
   const form = new ElementMock('form');
   form.querySelector = () => new ElementMock('input');
   const selectorIds = [
-    '#campaign-form', '#form-errors', '#prompt-panel', '#generated-prompt', '#copy-status', '#total-budget', '#daily-budget', '#copy-prompt',
+    '#campaign-form', '#form-errors', '#prompt-panel', '#prompt-heading', '#generated-prompt', '#prompt-badge',
+    '#prompt-stale', '#prompt-stale-message', '#copy-status', '#copy-prompt', '#copy-open-chatgpt', '#regenerate-prompt',
+    '#total-budget', '#daily-budget',
     '#tracker', '#tracker-heading', '#tracker-editor', '#tracker-editor-title', '#tracker-groups', '#tracker-message', '#tracker-page', '#tracker-pages',
     '#tracker-clients', '#tracker-download-corrupt', '#tracker-add', '#tracker-import-review', '#tracker-import-summary', '#tracker-import-merge',
     '#tracker-import-replace', '#tracker-import-cancel', '#tracker-undo-import', '#tracker-search', '#tracker-status', '#tracker-ending',
@@ -101,6 +103,8 @@ function setupTracker(state = tracker.createTrackerState()) {
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
   elements.set('#tracker-editor', editor);
+  elements.get('#prompt-panel').hidden = true;
+  elements.get('#prompt-stale').hidden = true;
   elements.get('#tracker-editor').hidden = true;
   elements.get('#tracker-import-review').hidden = true;
   elements.get('#tracker-undo-import').hidden = true;
@@ -123,12 +127,15 @@ function setupTracker(state = tracker.createTrackerState()) {
       return Object.entries(currentData);
     }
   }
+  const windowListeners = {};
+  const intervals = { started: 0, cleared: 0, nextId: 1 };
   const window = {
     localStorage: storage,
     confirm: () => true,
-    setInterval: () => 17,
-    clearInterval: () => {},
-    addEventListener: () => {}
+    setInterval: () => { intervals.started += 1; return intervals.nextId++; },
+    clearInterval: () => { intervals.cleared += 1; },
+    addEventListener: (type, callback) => { (windowListeners[type] ??= []).push(callback); },
+    open: url => { window.opened = url; return { opener: null }; }
   };
   const appSource = readFileSync('app.js', 'utf8');
   const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js(?:\?v=[^']+)?';/m);
@@ -143,7 +150,7 @@ function setupTracker(state = tracker.createTrackerState()) {
   };
   assert.doesNotThrow(() => vm.runInNewContext(source, sandbox));
 
-  return { elements, editor, storage, stored, document, groups: elements.get('#tracker-groups') };
+  return { elements, editor, storage, stored, document, groups: elements.get('#tracker-groups'), window, windowListeners, intervals };
 }
 
 test('browser initialization renders a saved boost card, progress bar, and countdown without runtime errors', () => {
@@ -292,4 +299,56 @@ test('an invalid backup reports the error, closes any stale review, and resets t
   assert.equal(input.value, '');
   assert.equal(app.elements.get('#tracker-import-review').hidden, true);
   assert.match(app.elements.get('#tracker-message').textContent, /Could not restore backup/);
+});
+
+test('storage events reload tracker data written by another tab', () => {
+  const state = tracker.createTrackerState();
+  tracker.upsertBoost(state, base);
+  const app = setupTracker(state);
+  assert.equal(app.groups.querySelectorAll('.boost-card').length, 1);
+
+  const next = structuredClone(state);
+  tracker.upsertBoost(next, { ...base, clientName: 'Client B', pageName: 'Second Page', pageUrl: '@second', campaignName: 'Second Campaign' });
+  app.stored.set(tracker.STORAGE_KEY, JSON.stringify(next));
+  app.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app.storage });
+
+  assert.equal(app.groups.querySelectorAll('.boost-card').length, 2);
+  assert.match(app.elements.get('#tracker-message').textContent, /another tab/);
+});
+
+test('storage events for unrelated keys leave the tracker untouched', () => {
+  const app = setupTracker();
+  app.stored.set('unrelated-key', 'value');
+  app.windowListeners.storage[0]({ key: 'unrelated-key', storageArea: app.storage });
+  assert.equal(app.elements.get('#tracker-message').textContent, '');
+});
+
+test('a storage sync closes the editor when another tab removes the edited boost', () => {
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertTrackedBoost(state, quickInput);
+  const app = setupTracker(state);
+  const edit = app.groups.querySelectorAll('.button').find(button => button.dataset.focus === `edit:${boost.id}`);
+  edit.listeners.click({ currentTarget: edit });
+  assert.equal(app.elements.get('#tracker-editor').hidden, false);
+
+  app.stored.set(tracker.STORAGE_KEY, JSON.stringify(tracker.createTrackerState()));
+  app.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app.storage });
+
+  assert.equal(app.elements.get('#tracker-editor').hidden, true);
+  assert.match(app.elements.get('#tracker-message').textContent, /editor was closed/);
+});
+
+test('pagehide stops the countdown timer and bfcache pageshow restarts it', () => {
+  const app = setupTracker();
+  assert.equal(app.intervals.started, 1);
+
+  app.windowListeners.pagehide[0]({});
+  assert.equal(app.intervals.cleared, 1);
+
+  app.windowListeners.pageshow[0]({ persisted: false });
+  assert.equal(app.intervals.started, 1);
+
+  app.windowListeners.pageshow[0]({ persisted: true });
+  assert.equal(app.intervals.started, 2);
+  assert.equal(app.intervals.cleared, 1);
 });

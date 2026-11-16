@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-safe-import-v5">
+<html lang="en" data-ui-revision="tracker-p1-ux-v6">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-safe-import-v5">
+  <link rel="stylesheet" href="styles.css?v=tracker-p1-ux-v6">
 </head>
 <body>
   <header class="site-header">
@@ -52,15 +52,19 @@
         </div>
         <div class="budget-summary" aria-live="polite"><div><span>Total campaign budget</span><strong id="total-budget">—</strong></div><div><span>Estimated daily budget</span><strong id="daily-budget">Enter a budget and duration</strong></div></div>
       </section>
-      <div id="form-errors" class="form-errors" role="alert" aria-live="polite" hidden></div>
+      <div id="form-errors" class="form-errors" role="alert" hidden></div>
       <div class="form-actions"><button class="button button-primary" type="submit">Generate ChatGPT Prompt <span aria-hidden="true">↗</span></button><button class="button button-secondary" id="track-campaign" type="button">Track Campaign</button><p>Your campaign information stays in this page until you copy and paste it.</p></div>
     </form>
     <section id="prompt-panel" class="card prompt-panel" aria-labelledby="prompt-heading" hidden>
-      <div class="prompt-title"><div><p class="eyebrow">READY TO ANALYZE</p><h2 id="prompt-heading">Your campaign prompt</h2></div><span class="ready-badge">Generated</span></div>
+      <div class="prompt-title"><div><p class="eyebrow">READY TO ANALYZE</p><h2 id="prompt-heading" tabindex="-1">Your campaign prompt</h2></div><span id="prompt-badge" class="ready-badge">Generated</span></div>
       <p class="prompt-help">Review the prompt, copy it, then paste and submit it inside ChatGPT.</p>
+      <div id="prompt-stale" class="prompt-stale" hidden>
+        <p id="prompt-stale-message" role="status">The brief changed after this prompt was generated. Regenerate it to include your latest edits before copying.</p>
+        <button id="regenerate-prompt" class="button button-secondary" type="button">Regenerate prompt</button>
+      </div>
       <label class="visually-hidden" for="generated-prompt">Generated ChatGPT campaign analysis prompt</label>
       <textarea id="generated-prompt" rows="24" readonly spellcheck="false"></textarea>
-      <div class="prompt-actions"><button id="copy-prompt" class="button button-primary" type="button">Copy Prompt</button><a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT <span aria-hidden="true">↗</span></a><span id="copy-status" role="status" aria-live="polite"></span></div>
+      <div class="prompt-actions"><button id="copy-prompt" class="button button-primary" type="button">Copy prompt</button><button id="copy-open-chatgpt" class="button button-secondary" type="button">Copy &amp; open ChatGPT <span aria-hidden="true">↗</span></button><a class="button button-secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT <span aria-hidden="true">↗</span></a><span id="copy-status" role="status" aria-live="polite"></span></div>
       <p class="privacy-note">ChatGPT opens separately. This page cannot insert your prompt into a ChatGPT conversation; paste and submit it there yourself.</p>
     </section>
     <section id="tracker" class="card tracker-panel" aria-labelledby="tracker-heading">
@@ -114,6 +118,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-safe-import-v5"></script>
+  <script type="module" src="app.js?v=tracker-p1-ux-v6"></script>
 </body>
 </html>
