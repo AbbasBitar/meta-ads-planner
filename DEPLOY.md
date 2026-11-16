@@ -17,9 +17,10 @@ Any static host works. Serve the contents of `dist/` with the root route pointin
 
 The repository previously contained a Cloudflare Worker with Pages Functions, KV namespaces, Durable Objects, and secrets. All of that code and local configuration was removed from the repository in November 2026; the app no longer uses any of it.
 
-Removing the code does not delete resources in the Cloudflare account. If the old Worker is still deployed there, decommission it manually from the Cloudflare dashboard:
+Status after the v2 cutover (2026-11-17):
 
-1. Delete or disable the legacy Worker and its routes (including the old `/api/submit` endpoint).
-2. Delete the associated KV namespaces and Durable Objects.
-3. Rotate the `APPROVED_EMAILS` secret if it is still stored anywhere, since the feature that used it no longer exists.
-4. Verify the live site serves the static `dist/` build (the page source references `?v=tracker-renames-v9` assets).
+- v2 is live on Cloudflare Pages project `meta-ads-planner`: https://meta-ads-planner.pages.dev and https://ads-planner.teckhub.net (deployed via `wrangler pages deploy dist --project-name meta-ads-planner`).
+- The legacy Worker `meta-ads-planner-apicopy` was deleted. The old `/api/submit` endpoint no longer exists.
+- Remaining account-level leftovers, deleted manually when no longer needed:
+  - KV namespace `ADS_PLANNER_KV` (`3d500e63351848689b46bb0bc0d01fca`) — holds legacy v1 submission data.
+  - The Cloudflare Access application gating `ads-planner.teckhub.net` (Zero Trust dashboard) — remove it only if the site should be public.
