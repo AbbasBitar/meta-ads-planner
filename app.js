@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=performance-v1';
+import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost, weeklySummary } from './src/tracker.js?v=weekly-v1';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -488,6 +488,54 @@ function initTracker() {
       advice.textContent = signalAdvice[perf.signal];
       item.append(badge, title, metrics, advice);
       dailyList.append(item);
+    }
+    const weekly = document.querySelector('#weekly-summary');
+    const weeklyList = document.querySelector('#weekly-summary-list');
+    const summary = weeklySummary(state, clock);
+    weekly.hidden = !summary.pages.length;
+    weeklyList.replaceChildren();
+    if (summary.pages.length) {
+      const totals = document.createElement('div');
+      totals.className = 'daily-check-row weekly-totals';
+      const totalsBadge = document.createElement('span');
+      totalsBadge.className = 'signal-badge signal-no-data';
+      totalsBadge.textContent = `${summary.startDate} → ${summary.endDate}`;
+      const totalsTitle = document.createElement('span');
+      totalsTitle.className = 'daily-check-title';
+      totalsTitle.textContent = `All pages: ${money.format(summary.totals.spend)} spend · ${summary.totals.results} result${summary.totals.results === 1 ? '' : 's'}${summary.totals.cpa !== null ? ` · avg cost per result ${money.format(summary.totals.cpa)}` : ''}`;
+      totals.append(totalsBadge, totalsTitle);
+      weeklyList.append(totals);
+      if (summary.best && summary.worst && summary.best.boostId !== summary.worst.boostId) {
+        const extremes = document.createElement('div');
+        extremes.className = 'daily-check-row';
+        const bestBadge = document.createElement('span');
+        bestBadge.className = 'signal-badge signal-on-track';
+        bestBadge.textContent = 'Best CPA';
+        const bestTitle = document.createElement('span');
+        bestTitle.className = 'daily-check-title';
+        bestTitle.textContent = `${summary.best.pageName} · ${summary.best.purpose} — ${money.format(summary.best.cpa)}`;
+        const extremesMeta = document.createElement('span');
+        extremesMeta.className = 'daily-check-metrics';
+        extremesMeta.textContent = `Worst: ${summary.worst.pageName} · ${summary.worst.purpose} — ${money.format(summary.worst.cpa)}`;
+        extremes.append(bestBadge, bestTitle, extremesMeta);
+        weeklyList.append(extremes);
+      }
+      for (const page of summary.pages) {
+        const row = document.createElement('div');
+        row.className = 'daily-check-row';
+        const badge = document.createElement('span');
+        badge.className = 'signal-badge signal-no-data';
+        badge.textContent = 'Page';
+        const title = document.createElement('span');
+        title.className = 'daily-check-title';
+        title.textContent = page.clientName && page.clientName !== 'Tracked pages' ? `${page.clientName} · ${page.pageName}` : page.pageName;
+        const metrics = document.createElement('span');
+        metrics.className = 'daily-check-metrics';
+        const boostBits = page.boosts.map(boost => `${boost.purpose}: ${money.format(boost.spend)} / ${boost.results} result${boost.results === 1 ? '' : 's'}${boost.cpa !== null ? ` / ${money.format(boost.cpa)}` : ''}`);
+        metrics.textContent = `${money.format(page.spend)} spend · ${page.results} result${page.results === 1 ? '' : 's'}${page.cpa !== null ? ` · cost per result ${money.format(page.cpa)}` : ''} — ${boostBits.join(' · ')}`;
+        row.append(badge, title, metrics);
+        weeklyList.append(row);
+      }
     }
     groups.replaceChildren();
     for (const page of filtered) {

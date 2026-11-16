@@ -10,11 +10,12 @@ test('build contains only the usable v2 frontend assets', () => {
   assert.deepEqual(readdirSync('dist/src').sort(), ['intake.js', 'tracker.js']);
   const html = readFileSync('dist/index.html', 'utf8');
   assert.match(html, /campaign-form/);
-  assert.match(html, /data-ui-revision="performance-v1"/);
-  assert.ok(html.includes('href="styles.css?v=performance-v1"'), 'stylesheet revision must be included');
-  assert.ok(html.includes('src="app.js?v=performance-v1"'), 'app module revision must be included');
+  assert.match(html, /data-ui-revision="weekly-v1"/);
+  assert.ok(html.includes('href="styles.css?v=weekly-v1"'), 'stylesheet revision must be included');
+  assert.ok(html.includes('src="app.js?v=weekly-v1"'), 'app module revision must be included');
   assert.ok(html.includes('id="daily-check"'), 'daily check section must be included');
   assert.ok(html.includes('id="results-form"'), 'results logging form must be included');
+  assert.ok(html.includes('id="weekly-summary"'), 'weekly summary section must be included');
   assert.match(html, /https:\/\/chatgpt\.com\//);
   const app = readFileSync('dist/app.js', 'utf8');
   assert.match(app, /generateChatGPTPrompt/);

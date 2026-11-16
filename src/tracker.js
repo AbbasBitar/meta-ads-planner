@@ -537,3 +537,48 @@ export function dailyChecklist(state, now = Date.now()) {
   rows.sort((a, b) => rank[a.performance.signal] - rank[b.performance.signal]);
   return rows;
 }
+
+
+export function weeklySummary(state, now = Date.now()) {
+  const endDate = new Date(now - new Date(now).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const startDate = new Date(Date.parse(`${endDate}T00:00:00.000Z`) - 6 * DAY_MS).toISOString().slice(0, 10);
+  const pages = [];
+  let totalSpend = 0;
+  let totalResults = 0;
+  let best = null;
+  let worst = null;
+  for (const page of state.pages) {
+    const client = state.clients.find(item => item.id === page.clientId);
+    const boosts = [];
+    let pageSpend = 0;
+    let pageResults = 0;
+    for (const campaign of page.campaigns) {
+      for (const boost of campaign.boosts) {
+        const entries = (boost.resultsLog ?? []).filter(entry => entry.date >= startDate && entry.date <= endDate);
+        if (!entries.length) continue;
+        const spend = entries.reduce((sum, entry) => sum + entry.spend, 0);
+        const results = entries.reduce((sum, entry) => sum + entry.results, 0);
+        const cpa = results > 0 ? spend / results : null;
+        pageSpend += spend;
+        pageResults += results;
+        boosts.push({ boostId: boost.id, campaignName: campaign.name, purpose: boost.purpose || boost.goal || campaign.name, spend, results, cpa });
+        if (cpa !== null) {
+          if (!best || cpa < best.cpa) best = { boostId: boost.id, pageName: page.pageName, purpose: boost.purpose || boost.goal || campaign.name, cpa };
+          if (!worst || cpa > worst.cpa) worst = { boostId: boost.id, pageName: page.pageName, purpose: boost.purpose || boost.goal || campaign.name, cpa };
+        }
+      }
+    }
+    if (!boosts.length) continue;
+    totalSpend += pageSpend;
+    totalResults += pageResults;
+    pages.push({ pageId: page.id, pageName: page.pageName, clientName: client?.name ?? '', spend: pageSpend, results: pageResults, cpa: pageResults > 0 ? pageSpend / pageResults : null, boosts });
+  }
+  return {
+    startDate,
+    endDate,
+    totals: { spend: totalSpend, results: totalResults, cpa: totalResults > 0 ? totalSpend / totalResults : null },
+    pages,
+    best,
+    worst
+  };
+}

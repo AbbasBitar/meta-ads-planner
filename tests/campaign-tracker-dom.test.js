@@ -101,7 +101,8 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#tracker-import-replace', '#tracker-import-cancel', '#tracker-undo-import', '#tracker-search', '#tracker-status', '#tracker-ending',
     '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters',
     '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help',
-    '#daily-check', '#daily-check-list', '#daily-check-heading', '#results-form', '#results-form-error', '#results-form-title', '#results-form-context', '#results-cancel'
+    '#daily-check', '#daily-check-list', '#daily-check-heading', '#results-form', '#results-form-error', '#results-form-title', '#results-form-context', '#results-cancel',
+    '#weekly-summary', '#weekly-summary-list', '#weekly-summary-heading'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
@@ -505,4 +506,22 @@ test('logging results from a boost card updates storage and the daily check sign
   assert.deepEqual(saved.resultsLog, [{ date: '2026-11-16', spend: 60, results: 5 }]);
   assert.match(app.elements.get('#daily-check-list').children[0].children[0].textContent, /Over target/);
   assert.equal(app.elements.get('#results-form').hidden, true);
+});
+
+test('weekly summary renders totals and page rows for logged results', () => {
+  const now = Date.now();
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertBoost(state, {
+    clientName: 'Weekly Client', pageName: 'Weekly Page', pageUrl: '@weekly',
+    campaignName: 'Weekly Campaign', goal: 'Messages', postUrl: '',
+    budget: 100, durationDays: 4, startAt: new Date(now - 24 * 60 * 60 * 1000).toISOString()
+  });
+  const today = new Date(now - new Date(now).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  tracker.logBoostResults(state, boost.id, { date: today, spend: 25, results: 5 });
+  const app = setupTracker(state);
+  assert.equal(app.elements.get('#weekly-summary').hidden, false);
+  const list = app.elements.get('#weekly-summary-list');
+  assert.ok(list.children.length >= 2, 'totals row and page row are rendered');
+  assert.match(list.children[0].children[1].textContent, /All pages: \$25\.00 spend · 5 results/);
+  assert.match(list.children[0].children[1].textContent, /avg cost per result \$5\.00/);
 });

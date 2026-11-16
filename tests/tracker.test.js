@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, boostPerformance, calculateEndDate, createTrackerState, dailyChecklist, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, logBoostResults, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, boostPerformance, calculateEndDate, createTrackerState, dailyChecklist, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, logBoostResults, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState, weeklySummary } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -424,4 +424,43 @@ test('results log and target survive export and import roundtrip and validate st
   const invalid = JSON.parse(exportTracker(state));
   invalid.pages[0].campaigns[0].boosts[0].targetCpa = -1;
   assert.throws(() => importTracker(JSON.stringify(invalid)), /invalid target cost per result/);
+});
+
+test('weekly summary aggregates the last 7 days per page and finds best and worst CPA', () => {
+  const now = Date.parse('2026-02-10T15:00:00.000Z');
+  const state = createTrackerState();
+  const a = addBoost(state, base);
+  const b = addBoost(state, { ...base, campaignName: 'Second', postUrl: '' });
+  const other = addBoost(state, { ...base, clientName: 'Client B', pageName: 'Olive Studio', pageUrl: '@olive', campaignName: 'Launch', postUrl: '' });
+  logBoostResults(state, a.id, { date: '2026-02-09', spend: 20, results: 10 });
+  logBoostResults(state, a.id, { date: '2026-02-03', spend: 999, results: 99 });
+  logBoostResults(state, b.id, { date: '2026-02-10', spend: 30, results: 3 });
+  logBoostResults(state, other.id, { date: '2026-02-08', spend: 12, results: 6 });
+  const summary = weeklySummary(state, now);
+  assert.equal(summary.startDate, '2026-02-04');
+  assert.equal(summary.endDate, '2026-02-10');
+  assert.equal(summary.pages.length, 2);
+  const cedar = summary.pages.find(page => page.pageName === 'Cedar Bakery');
+  assert.equal(cedar.spend, 50);
+  assert.equal(cedar.results, 13);
+  assert.deepEqual(summary.totals, { spend: 62, results: 19, cpa: 62 / 19 });
+  assert.equal(summary.best.boostId, a.id);
+  assert.equal(summary.best.cpa, 2);
+  assert.equal(summary.worst.boostId, b.id);
+  assert.equal(summary.worst.cpa, 10);
+});
+
+test('weekly summary is empty without recent entries and ignores zero-result CPAs in extremes', () => {
+  const now = Date.parse('2026-02-10T15:00:00.000Z');
+  const state = createTrackerState();
+  const boost = addBoost(state, base);
+  assert.equal(weeklySummary(state, now).pages.length, 0);
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 10, results: 2 });
+  assert.equal(weeklySummary(state, now).pages.length, 0, 'entries older than 7 days are excluded');
+  logBoostResults(state, boost.id, { date: '2026-02-10', spend: 15, results: 0 });
+  const summary = weeklySummary(state, now);
+  assert.equal(summary.pages.length, 1);
+  assert.equal(summary.totals.cpa, null);
+  assert.equal(summary.best, null);
+  assert.equal(summary.worst, null);
 });

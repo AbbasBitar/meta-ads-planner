@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="performance-v1">
+<html lang="en" data-ui-revision="weekly-v1">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=performance-v1">
+  <link rel="stylesheet" href="styles.css?v=weekly-v1">
 </head>
 <body>
   <header class="site-header">
@@ -79,6 +79,11 @@
         <p class="daily-check-note">Active boosts ranked by urgency. Compare logged spend and results with your target, then decide: keep, watch, or pause. Log today's numbers from Meta on each boost card below.</p>
         <div id="daily-check-list"></div>
       </section>
+      <section id="weekly-summary" class="daily-check weekly-summary" aria-labelledby="weekly-summary-heading" hidden>
+        <h3 id="weekly-summary-heading" tabindex="-1">Weekly summary</h3>
+        <p class="daily-check-note">Logged results from the last 7 days, grouped by page. Use it to spot your best and worst cost per result this week.</p>
+        <div id="weekly-summary-list"></div>
+      </section>
       <div id="tracker-import-review" class="tracker-import-review" role="group" aria-labelledby="tracker-import-summary" hidden>
         <p id="tracker-import-summary" tabindex="-1"></p>
         <div class="tracker-import-actions"><button id="tracker-import-merge" class="button button-secondary" type="button">Merge into current data</button><button id="tracker-import-replace" class="button button-danger" type="button">Replace all data</button><button id="tracker-import-cancel" class="button button-secondary" type="button">Cancel</button></div>
@@ -148,6 +153,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=performance-v1"></script>
+  <script type="module" src="app.js?v=weekly-v1"></script>
 </body>
 </html>
