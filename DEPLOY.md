@@ -1,6 +1,6 @@
-# Deployment and production migration notes
+# Deployment notes
 
-This repository's v2 application is a static frontend built into `dist/`. It generates a campaign analysis prompt in the browser and links to ChatGPT for the user to paste manually.
+The app is a fully static frontend. It generates a campaign analysis prompt in the browser; the user pastes it into ChatGPT manually. There are no server-side components, no API calls, and no secrets in the repository.
 
 ## Local validation
 
@@ -9,15 +9,16 @@ This repository's v2 application is a static frontend built into `dist/`. It gen
 
 The build output is `dist/`. GitHub Actions runs the tests and build on changes to `main` and pull requests targeting `main`.
 
-## Production migration
+## Deploying
 
-The local implementation does not deploy or change production hosting. Before a separately approved production migration:
+Any static host works. Serve the contents of `dist/` with the root route pointing at `dist/index.html`. No environment variables, bindings, or build step are required on the host.
 
-1. Review the v2 form and prompt output.
-2. Confirm the static host serves the built `dist/` assets and that the root route points to the v2 `index.html`.
-3. Confirm the user-facing privacy notice matches the intended hosting and retention behavior.
-4. Verify production behavior after the approved release using the hosting provider's normal checks.
+## Legacy Cloudflare resources
 
-The legacy Cloudflare Worker, Pages Function, bindings, KV namespaces, Durable Object resources, and secrets are outside the static v2 build. Removing repository code does not delete or alter those deployed resources or secrets. Assess their status separately after production traffic has migrated; do not delete them as part of this repository change.
+The repository previously contained a Cloudflare Worker with Pages Functions, KV namespaces, Durable Objects, and secrets. All of that code and local configuration was removed from the repository in November 2026; the app no longer uses any of it.
 
-This change has not been deployed. The production website continues to follow its existing hosting and release configuration until a future approved migration.
+Status after the v2 cutover (2026-11-17):
+
+- v2 is live on Cloudflare Pages project `meta-ads-planner`: https://meta-ads-planner.pages.dev and https://ads-planner.teckhub.net (deployed via `wrangler pages deploy dist --project-name meta-ads-planner`).
+- The legacy Worker `meta-ads-planner-apicopy` was deleted, along with KV namespace `ADS_PLANNER_KV`. The old `/api/submit` endpoint no longer exists.
+- Remaining account-level leftover: the Cloudflare Access application gating `ads-planner.teckhub.net` (AUD `09495c2b…4eae3`). Remove it in the Zero Trust dashboard (**Access → Applications → Delete**) if the site should be public; wrangler's OAuth token has no Zero Trust permissions, so this step is dashboard-only.

@@ -30,7 +30,7 @@ Build output: `dist/`.
 
 ## Deployment notes
 
-The repository currently retains its GitHub Actions validation workflow. Production hosting and infrastructure were not changed as part of the local v2 implementation. Review `DEPLOY.md` before a future production migration.
+The app is a static frontend with no server-side components. The repository retains its GitHub Actions validation workflow. See `DEPLOY.md` for hosting instructions and the legacy Cloudflare decommissioning checklist.
 
 ## Campaign guidance
 
