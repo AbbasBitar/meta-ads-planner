@@ -245,3 +245,7 @@ input[aria-invalid="true"]:focus,select[aria-invalid="true"]:focus,textarea[aria
 .tracker-filter-options .button{min-height:44px}
 .tracker-summary{margin:18px 0 4px;font-size:14px;font-weight:700}
 .tracker-summary-note{margin:0 0 14px;color:var(--muted);font-size:12px;line-height:1.5}
+.campaign-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#tracker .campaign-actions .button{min-height:42px;padding:9px 14px}
+#tracker-rename-error{color:#9d392c;font-size:13px}
+@media(max-width:650px){.campaign-actions{justify-content:flex-start}.campaign-actions .button{flex:1 1 auto}}

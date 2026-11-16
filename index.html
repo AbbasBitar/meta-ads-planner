@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-dashboard-v8">
+<html lang="en" data-ui-revision="tracker-renames-v9">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-dashboard-v8">
+  <link rel="stylesheet" href="styles.css?v=tracker-renames-v9">
 </head>
 <body>
   <header class="site-header">
@@ -78,6 +78,13 @@
         <p id="tracker-import-summary" tabindex="-1"></p>
         <div class="tracker-import-actions"><button id="tracker-import-merge" class="button button-secondary" type="button">Merge into current data</button><button id="tracker-import-replace" class="button button-danger" type="button">Replace all data</button><button id="tracker-import-cancel" class="button button-secondary" type="button">Cancel</button></div>
       </div>
+      <form id="tracker-rename" class="tracker-editor" hidden>
+        <h3 id="tracker-rename-title" tabindex="-1">Rename</h3>
+        <p id="tracker-rename-help" class="tracker-time-note"></p>
+        <label>New name <input id="tracker-rename-name" type="text" maxlength="160" required aria-describedby="tracker-rename-help"></label>
+        <p id="tracker-rename-error" role="alert" hidden></p>
+        <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save name</button><button id="tracker-rename-cancel" class="button button-secondary" type="button">Cancel</button></div>
+      </form>
       <form id="tracker-editor" class="tracker-editor tracker-quick-editor" hidden>
         <div class="tracker-editor-heading">
           <h3 id="tracker-editor-title" tabindex="-1">Track a planned boost</h3>
@@ -85,7 +92,7 @@
         </div>
         <input name="boostId" type="hidden">
         <div class="field-grid">
-          <label class="span-2">Page name <span class="required">*</span><input name="pageName" list="tracker-pages" maxlength="160" required placeholder="e.g. Cedar Lens Photography"><datalist id="tracker-pages"></datalist></label>
+          <label class="span-2">Page name <span class="required">*</span><input name="pageName" list="tracker-pages" maxlength="160" required placeholder="e.g. Cedar Lens Photography" aria-describedby="tracker-page-edit-help"><datalist id="tracker-pages"></datalist><span id="tracker-page-edit-help" class="tracker-time-note" hidden>To rename this shared page, use Rename page in the tracker.</span></label>
           <label>Boost creation date and time <span class="required">*</span><input name="createdLocal" type="datetime-local" required></label>
           <label>Boost start date and time <span class="required">*</span><input name="startLocal" type="datetime-local" required></label>
           <label>Boost end date and time <span class="optional">Calculated</span><input name="endLocal" type="datetime-local" readonly aria-readonly="true"></label>
@@ -121,6 +128,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-dashboard-v8"></script>
+  <script type="module" src="app.js?v=tracker-renames-v9"></script>
 </body>
 </html>

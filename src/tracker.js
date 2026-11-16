@@ -299,6 +299,8 @@ export function upsertBoost(state, input, boostId = null) {
   if (page && page.clientId !== client?.id) throw new Error(`This page is already assigned to ${state.clients.find(item => item.id === page.clientId)?.name ?? 'another client'}.`);
   if (input.campaignId && !page) throw new Error('Selected campaign no longer exists.');
   const existingCampaign = boostId ? page?.campaigns.find(c => c.boosts.some(b => b.id === boostId)) : null;
+  if (existingPage && existingPage.pageName !== pageName) throw new Error('Rename the page using the page action, not the boost editor.');
+  if (existingCampaign && (existingCampaign.name !== campaignName || existingCampaign.goal !== goal)) throw new Error('Edit the campaign using its own action, not the boost editor.');
   let campaign = existingCampaign ?? (input.campaignId ? page?.campaigns.find(c => c.id === input.campaignId) : null);
   if (input.campaignId && !campaign) throw new Error('Selected campaign no longer exists.');
   if (boostId && input.campaignId && existingCampaign?.id !== input.campaignId) throw new Error('A boost cannot be moved to another campaign.');
@@ -316,9 +318,30 @@ export function upsertBoost(state, input, boostId = null) {
   if (createdAt !== undefined) boost.createdAt = createdAt;
   if (purpose !== undefined) boost.purpose = purpose;
   if (desiredAction !== undefined) boost.desiredAction = desiredAction;
-  if (previous) { Object.assign(previous, boost); page.pageName = pageName; } else campaign.boosts.push(boost);
-  if (existingCampaign) { existingCampaign.name = campaignName; existingCampaign.goal = goal; }
+  if (previous) Object.assign(previous, boost); else campaign.boosts.push(boost);
   return boost;
+}
+
+export function renameTrackedEntity(state, kind, id, name, expectedName) {
+  const value = typeof name === 'string' ? name.trim() : '';
+  if (!value || value.length > 160) throw new Error('Enter a name of up to 160 characters.');
+  let target;
+  let siblings;
+  if (kind === 'page') {
+    target = state.pages.find(page => page.id === id);
+    siblings = state.pages;
+  } else if (kind === 'campaign') {
+    const page = state.pages.find(item => item.campaigns.some(campaign => campaign.id === id));
+    target = page?.campaigns.find(campaign => campaign.id === id);
+    siblings = page?.campaigns;
+  } else throw new Error('Unknown record type.');
+  if (!target) throw new Error('This record no longer exists.');
+  const key = kind === 'page' ? 'pageName' : 'name';
+  if (expectedName !== undefined && target[key] !== expectedName) throw new Error('This name changed in another tab. Close and reopen the rename form.');
+  if (siblings.some(item => item !== target && item[key].trim().toLocaleLowerCase() === value.toLocaleLowerCase())) {
+    throw new Error(`A ${kind} with that name already exists${kind === 'campaign' ? ' on this page' : ''}.`);
+  }
+  target[key] = value;
 }
 
 /**
