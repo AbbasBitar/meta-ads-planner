@@ -249,3 +249,22 @@ input[aria-invalid="true"]:focus,select[aria-invalid="true"]:focus,textarea[aria
 #tracker .campaign-actions .button{min-height:42px;padding:9px 14px}
 #tracker-rename-error{color:#9d392c;font-size:13px}
 @media(max-width:650px){.campaign-actions{justify-content:flex-start}.campaign-actions .button{flex:1 1 auto}}
+
+/* Performance tracking and daily check (performance-v1) */
+.daily-check{border:1px solid var(--line);border-radius:12px;background:#f8faf8;padding:16px 18px;margin:0 0 18px}
+.daily-check h3{margin:0 0 4px;font-size:15px}
+.daily-check h3:focus{outline:2px solid var(--green);outline-offset:4px;border-radius:4px}
+.daily-check-note{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.5}
+.daily-check-row{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;padding:10px 0;border-top:1px solid var(--line);align-items:baseline}
+.daily-check-row:first-of-type{border-top:0;padding-top:2px}
+.signal-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.signal-on-track{background:var(--mint);color:var(--green)}
+.signal-watch{background:#fff1dc;color:#8a4b12}
+.signal-over-target{background:#fbe9e5;color:#8a2f24}
+.signal-no-data,.signal-no-target{background:#eef1ee;color:#5c6760}
+.daily-check-title{font-size:13px;font-weight:650;color:var(--ink)}
+.daily-check-metrics{grid-column:2;font-size:12px;color:var(--muted);line-height:1.5}
+.daily-check-action{grid-column:2;font-size:12px;color:#354139;line-height:1.5}
+.boost-performance{font-size:12px;color:var(--green);font-weight:600;margin:5px 0}
+#results-form-error{color:#9d392c;font-size:13px;margin:0 0 12px}
+@media(max-width:560px){.daily-check-row{grid-template-columns:1fr}.daily-check-metrics,.daily-check-action{grid-column:1}}

@@ -37,6 +37,28 @@ function isSafePostUrl(value) {
   } catch { return false; }
 }
 
+export const MAX_RESULT_ENTRIES = 400;
+
+export function isValidResultDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\d$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function validateResultsLog(log) {
+  if (!Array.isArray(log) || log.length > MAX_RESULT_ENTRIES) throw new Error('Backup contains an invalid results log.');
+  const dates = new Set();
+  for (const entry of log) {
+    if (!record(entry)) throw new Error('Backup contains an invalid results entry.');
+    onlyKeys(entry, ['date', 'spend', 'results'], 'results entry');
+    if (!isValidResultDate(entry.date)) throw new Error('Backup contains an invalid results date.');
+    if (dates.has(entry.date)) throw new Error('Backup contains duplicate results dates.');
+    dates.add(entry.date);
+    if (typeof entry.spend !== 'number' || !Number.isFinite(entry.spend) || entry.spend < 0 || entry.spend > 1_000_000) throw new Error('Backup contains an invalid results spend.');
+    if (!Number.isInteger(entry.results) || entry.results < 0 || entry.results > 1_000_000) throw new Error('Backup contains an invalid results count.');
+  }
+}
+
 export function localInputToIso(value) {
   const date = new Date(value);
   if (!value || !Number.isFinite(date.getTime())) throw new Error('Enter a valid start date and time.');
@@ -126,7 +148,7 @@ export function validateState(state) {
       if (boostCount > 10000) throw new Error('Backup contains too many boosts.');
       for (const boost of campaign.boosts) {
         if (!record(boost)) throw new Error('Backup contains an invalid boost.');
-        onlyKeys(boost, ['id', 'postUrl', 'goal', 'budget', 'durationDays', 'startAt', 'endAt', 'status', 'archived', 'createdAt', 'purpose', 'desiredAction'], 'boost');
+        onlyKeys(boost, ['id', 'postUrl', 'goal', 'budget', 'durationDays', 'startAt', 'endAt', 'status', 'archived', 'createdAt', 'purpose', 'desiredAction', 'targetCpa', 'resultsLog'], 'boost');
         addId(boost.id, 'boost');
         if (typeof boost.budget !== 'number' || !Number.isFinite(boost.budget) || boost.budget <= 0 || !Number.isInteger(boost.durationDays) || boost.durationDays < 1) throw new Error('Backup contains an invalid budget or duration.');
         if (!BOOST_STATUSES.includes(boost.status) || typeof boost.archived !== 'boolean') throw new Error('Backup contains an invalid boost status.');
@@ -136,6 +158,8 @@ export function validateState(state) {
         if (boost.createdAt !== undefined) parseInstant(boost.createdAt);
         if (boost.purpose !== undefined) boundedString(boost.purpose, 'boost purpose', 160);
         if (boost.desiredAction !== undefined && !BOOST_ACTIONS.includes(boost.desiredAction)) throw new Error('Backup contains an invalid boost desired action.');
+        if (boost.targetCpa !== undefined && (typeof boost.targetCpa !== 'number' || !Number.isFinite(boost.targetCpa) || boost.targetCpa <= 0 || boost.targetCpa > 100_000)) throw new Error('Backup contains an invalid target cost per result.');
+        if (boost.resultsLog !== undefined) validateResultsLog(boost.resultsLog);
         const expected = calculateEndDate(boost.startAt, boost.durationDays);
         if (parseInstant(boost.endAt) !== parseInstant(expected)) throw new Error('Backup contains an invalid end date.');
       }
@@ -319,7 +343,17 @@ export function upsertBoost(state, input, boostId = null) {
   if (purpose !== undefined) boost.purpose = purpose;
   if (desiredAction !== undefined) boost.desiredAction = desiredAction;
   if (previous) Object.assign(previous, boost); else campaign.boosts.push(boost);
-  return boost;
+  const stored = previous ?? boost;
+  if (Object.hasOwn(input, 'targetCpa')) {
+    const raw = input.targetCpa;
+    if (raw === undefined || raw === null || raw === '') delete stored.targetCpa;
+    else {
+      const target = Number(raw);
+      if (!Number.isFinite(target) || target <= 0 || target > 100000) throw new Error('Target cost per result must be a positive number.');
+      stored.targetCpa = target;
+    }
+  }
+  return stored;
 }
 
 export function renameTrackedEntity(state, kind, id, name, expectedName) {
@@ -387,7 +421,8 @@ export function upsertTrackedBoost(state, input, boostId = null, context = {}) {
     startAt: input.startAt,
     createdAt: input.createdAt,
     purpose,
-    desiredAction
+    desiredAction,
+    targetCpa: input.targetCpa
   }, boostId);
 }
 
@@ -432,4 +467,73 @@ export function filterBoosts(state, { query = '', pageUrl = '', status = '', end
     }) })).filter(campaign => campaign.boosts.length);
     return { ...page, clientName: client?.name ?? '', campaigns };
   }).filter(page => page.campaigns.length);
+}
+
+export const BOOST_SIGNALS = Object.freeze(['on-track', 'watch', 'over-target', 'no-target', 'no-data']);
+
+export function logBoostResults(state, boostId, entry) {
+  const found = findBoost(state, boostId);
+  if (!found) throw new Error('Selected boost no longer exists.');
+  if (!isValidResultDate(entry?.date)) throw new Error('Enter a valid results date.');
+  const spend = Number(entry.spend);
+  const results = Number(entry.results);
+  if (!Number.isFinite(spend) || spend < 0 || spend > 1_000_000) throw new Error('Spend must be a number from 0 to 1,000,000.');
+  if (!Number.isInteger(results) || results < 0 || results > 1_000_000) throw new Error('Results must be a whole number from 0 to 1,000,000.');
+  if (spend === 0 && results === 0) throw new Error('Enter spend, results, or both.');
+  const log = [...(found.boost.resultsLog ?? [])];
+  const record = { date: entry.date, spend, results };
+  const index = log.findIndex(item => item.date === entry.date);
+  if (index >= 0) log[index] = record;
+  else {
+    if (log.length >= MAX_RESULT_ENTRIES) throw new Error('This boost already has the maximum number of results entries.');
+    log.push(record);
+  }
+  log.sort((a, b) => (a.date < b.date ? -1 : 1));
+  found.boost.resultsLog = log;
+  return record;
+}
+
+export function boostPerformance(boost, now = Date.now()) {
+  const log = Array.isArray(boost.resultsLog) ? boost.resultsLog : [];
+  const spendToDate = log.reduce((sum, entry) => sum + entry.spend, 0);
+  const resultsToDate = log.reduce((sum, entry) => sum + entry.results, 0);
+  const actualCpa = resultsToDate > 0 ? spendToDate / resultsToDate : null;
+  const plannedDaily = boost.budget / boost.durationDays;
+  const daysElapsed = Math.max(0, Math.min(boost.durationDays, (now - parseInstant(boost.startAt)) / DAY_MS));
+  const expectedSpend = plannedDaily * daysElapsed;
+  const pacing = expectedSpend > 0 ? spendToDate / expectedSpend : null;
+  const pacingStatus = pacing === null ? 'unknown' : pacing < 0.8 ? 'under' : pacing > 1.2 ? 'over' : 'ok';
+  const targetCpa = boost.targetCpa ?? null;
+  let signal = 'no-data';
+  if (log.length) {
+    if (targetCpa) {
+      if (actualCpa !== null) signal = actualCpa > targetCpa * 2 ? 'over-target' : actualCpa > targetCpa ? 'watch' : 'on-track';
+      else signal = spendToDate >= targetCpa * 2 ? 'over-target' : spendToDate >= targetCpa ? 'watch' : 'on-track';
+    } else signal = 'no-target';
+  }
+  return { spendToDate, resultsToDate, actualCpa, plannedDaily, daysElapsed, expectedSpend, pacing, pacingStatus, targetCpa, signal };
+}
+
+export function dailyChecklist(state, now = Date.now()) {
+  const rows = [];
+  for (const page of state.pages) {
+    const client = state.clients.find(item => item.id === page.clientId);
+    for (const campaign of page.campaigns) {
+      for (const boost of campaign.boosts) {
+        if (boost.archived || scheduleStatus(boost, now) !== 'Active') continue;
+        rows.push({
+          boostId: boost.id,
+          clientName: client?.name ?? '',
+          pageName: page.pageName,
+          campaignName: campaign.name,
+          purpose: boost.purpose || boost.goal || campaign.name,
+          budget: boost.budget,
+          performance: boostPerformance(boost, now)
+        });
+      }
+    }
+  }
+  const rank = { 'over-target': 0, watch: 1, 'no-data': 2, 'on-track': 3, 'no-target': 4 };
+  rows.sort((a, b) => rank[a.performance.signal] - rank[b.performance.signal]);
+  return rows;
 }

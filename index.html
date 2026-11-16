@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-ui-revision="tracker-renames-v9">
+<html lang="en" data-ui-revision="performance-v1">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Prepare a structured Meta Ads campaign brief to analyze in ChatGPT.">
   <meta name="theme-color" content="#f6f7f4">
   <title>Meta Ads Planner — Campaign brief</title>
-  <link rel="stylesheet" href="styles.css?v=tracker-renames-v9">
+  <link rel="stylesheet" href="styles.css?v=performance-v1">
 </head>
 <body>
   <header class="site-header">
@@ -74,6 +74,11 @@
       <p id="tracker-summary" class="tracker-summary"></p>
       <p class="tracker-summary-note">Visible budget excludes archived and cancelled boosts; completed boosts are included. Statuses describe plans, not Meta delivery.</p>
       <div id="tracker-message" class="tracker-message" role="status"></div>
+      <section id="daily-check" class="daily-check" aria-labelledby="daily-check-heading" hidden>
+        <h3 id="daily-check-heading" tabindex="-1">Daily check</h3>
+        <p class="daily-check-note">Active boosts ranked by urgency. Compare logged spend and results with your target, then decide: keep, watch, or pause. Log today's numbers from Meta on each boost card below.</p>
+        <div id="daily-check-list"></div>
+      </section>
       <div id="tracker-import-review" class="tracker-import-review" role="group" aria-labelledby="tracker-import-summary" hidden>
         <p id="tracker-import-summary" tabindex="-1"></p>
         <div class="tracker-import-actions"><button id="tracker-import-merge" class="button button-secondary" type="button">Merge into current data</button><button id="tracker-import-replace" class="button button-danger" type="button">Replace all data</button><button id="tracker-import-cancel" class="button button-secondary" type="button">Cancel</button></div>
@@ -84,6 +89,20 @@
         <label>New name <input id="tracker-rename-name" type="text" maxlength="160" required aria-describedby="tracker-rename-help"></label>
         <p id="tracker-rename-error" role="alert" hidden></p>
         <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save name</button><button id="tracker-rename-cancel" class="button button-secondary" type="button">Cancel</button></div>
+      </form>
+      <form id="results-form" class="tracker-editor tracker-quick-editor" hidden>
+        <div class="tracker-editor-heading">
+          <h3 id="results-form-title" tabindex="-1">Log results</h3>
+          <p id="results-form-context">Record the spend and results Meta reports for this boost. Logging the same date again replaces that day's entry.</p>
+        </div>
+        <input name="boostId" type="hidden">
+        <div class="field-grid">
+          <label>Date <span class="required">*</span><input name="date" type="date" required></label>
+          <label>Spend (USD) <span class="required">*</span><input name="spend" type="number" min="0" step="0.01" required placeholder="e.g. 12.50" inputmode="decimal"></label>
+          <label>Results <span class="required">*</span><input name="results" type="number" min="0" step="1" required placeholder="e.g. 4" inputmode="numeric"></label>
+        </div>
+        <p id="results-form-error" role="alert" hidden></p>
+        <div class="tracker-editor-actions"><button class="button button-primary" type="submit">Save results</button><button id="results-cancel" class="button button-secondary" type="button">Cancel</button></div>
       </form>
       <form id="tracker-editor" class="tracker-editor tracker-quick-editor" hidden>
         <div class="tracker-editor-heading">
@@ -97,6 +116,7 @@
           <label>Boost start date and time <span class="required">*</span><input name="startLocal" type="datetime-local" required></label>
           <label>Boost end date and time <span class="optional">Calculated</span><input name="endLocal" type="datetime-local" readonly aria-readonly="true"></label>
           <label>Budget (USD) <span class="required">*</span><input name="budget" type="number" min="0.01" step="0.01" required placeholder="e.g. 40"></label>
+          <label>Target cost per result (USD) <span class="optional">Optional</span><input name="targetCpa" type="number" min="0.01" step="0.01" placeholder="e.g. 5" inputmode="decimal"></label>
           <label>Duration (days) <span class="required">*</span><input name="durationDays" type="number" min="1" step="1" required placeholder="e.g. 5"></label>
           <label>Purpose of the boost <span class="required">*</span><input name="purpose" maxlength="160" required placeholder="e.g. Promote newborn photography"></label>
           <label class="span-2">What do you want people to do when they see your ad? <span class="required">*</span>
@@ -128,6 +148,6 @@
     </section>
   </main>
   <footer class="shell">Meta Ads Planner <span aria-hidden="true">·</span> Campaign recommendations are guidance, not a guarantee of results.</footer>
-  <script type="module" src="app.js?v=tracker-renames-v9"></script>
+  <script type="module" src="app.js?v=performance-v1"></script>
 </body>
 </html>

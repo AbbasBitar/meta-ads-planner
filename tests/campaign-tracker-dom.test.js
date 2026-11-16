@@ -53,9 +53,8 @@ class ElementMock {
 }
 
 class FormMock extends ElementMock {
-  constructor() {
+  constructor(controls = ['boostId', 'pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction']) {
     super('form');
-    const controls = ['boostId', 'pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction'];
     const values = Object.fromEntries(controls.map(name => [name, new ElementMock('input')]));
     this.elements = { namedItem: name => values[name] };
     this.reset = () => { for (const [name, value] of Object.entries(values)) if (name !== 'boostId') value.value = ''; };
@@ -90,6 +89,7 @@ function setupTracker(state = tracker.createTrackerState()) {
   };
   const elements = new Map();
   const editor = new FormMock();
+  const resultsForm = new FormMock(['boostId', 'date', 'spend', 'results']);
   const form = new ElementMock('form');
   form.querySelector = () => new ElementMock('input');
   const selectorIds = [
@@ -100,11 +100,13 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#tracker-clients', '#tracker-download-corrupt', '#tracker-add', '#tracker-import-review', '#tracker-import-summary', '#tracker-import-merge',
     '#tracker-import-replace', '#tracker-import-cancel', '#tracker-undo-import', '#tracker-search', '#tracker-status', '#tracker-ending',
     '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters',
-    '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help'
+    '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help',
+    '#daily-check', '#daily-check-list', '#daily-check-heading', '#results-form', '#results-form-error', '#results-form-title', '#results-form-context', '#results-cancel'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
   elements.set('#tracker-editor', editor);
+  elements.set('#results-form', resultsForm);
   elements.get('#prompt-panel').hidden = true;
   elements.get('#prompt-stale').hidden = true;
   elements.get('#tracker-editor').hidden = true;
@@ -124,6 +126,12 @@ function setupTracker(state = tracker.createTrackerState()) {
         return Object.entries(Object.fromEntries(
           ['boostId', 'pageName', 'createdLocal', 'startLocal', 'endLocal', 'budget', 'durationDays', 'purpose', 'desiredAction']
             .map(name => [name, editor.elements.namedItem(name).value])
+        ));
+      }
+      if (this.target === resultsForm) {
+        return Object.entries(Object.fromEntries(
+          ['boostId', 'date', 'spend', 'results']
+            .map(name => [name, resultsForm.elements.namedItem(name).value])
         ));
       }
       return Object.entries(currentData);
@@ -152,7 +160,7 @@ function setupTracker(state = tracker.createTrackerState()) {
   };
   assert.doesNotThrow(() => vm.runInNewContext(source, sandbox));
 
-  return { elements, editor, storage, stored, document, groups: elements.get('#tracker-groups'), window, windowListeners, intervals };
+  return { elements, editor, resultsForm, storage, stored, document, groups: elements.get('#tracker-groups'), window, windowListeners, intervals };
 }
 
 test('browser initialization renders a saved boost card, progress bar, and countdown without runtime errors', () => {
@@ -470,4 +478,31 @@ test('tracker-message uses an error tone class for failures and green for succes
   const app2 = setupTracker(state);
   app2.windowListeners.storage[0]({ key: tracker.STORAGE_KEY, storageArea: app2.storage });
   assert.match(app2.elements.get('#tracker-message').className, /tracker-message--success/);
+});
+
+test('logging results from a boost card updates storage and the daily check signal', () => {
+  const now = Date.now();
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertBoost(state, {
+    clientName: 'Perf Client', pageName: 'Perf Page', pageUrl: '@perf',
+    campaignName: 'Perf Campaign', goal: 'Messages', postUrl: '',
+    budget: 100, durationDays: 4, startAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+    targetCpa: 5
+  });
+  const app = setupTracker(state);
+  assert.equal(app.elements.get('#daily-check').hidden, false, 'daily check is visible for active boosts');
+  assert.match(app.elements.get('#daily-check-list').children[0].children[0].textContent, /No data yet/);
+  const log = app.groups.querySelectorAll('.button').find(item => item.dataset.focus === `log:${boost.id}`);
+  assert.ok(log, 'boost card exposes a Log results action');
+  log.listeners.click({ currentTarget: log });
+  assert.equal(app.elements.get('#results-form').hidden, false);
+  assert.equal(app.resultsForm.elements.namedItem('boostId').value, boost.id);
+  app.resultsForm.elements.namedItem('date').value = '2026-11-16';
+  app.resultsForm.elements.namedItem('spend').value = '60';
+  app.resultsForm.elements.namedItem('results').value = '5';
+  app.resultsForm.listeners.submit({ preventDefault() {} });
+  const saved = tracker.findBoost(JSON.parse(app.stored.get(tracker.STORAGE_KEY)), boost.id).boost;
+  assert.deepEqual(saved.resultsLog, [{ date: '2026-11-16', spend: 60, results: 5 }]);
+  assert.match(app.elements.get('#daily-check-list').children[0].children[0].textContent, /Over target/);
+  assert.equal(app.elements.get('#results-form').hidden, true);
 });

@@ -1,7 +1,7 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, boostPerformance, calculateEndDate, createTrackerState, dailyChecklist, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, logBoostResults, mergeTrackerStates, removeBoost, renameTrackedEntity, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -321,4 +321,107 @@ test('new boost fields validate strictly and older v2 backups remain readable', 
   assert.throws(() => validateState(invalid), /invalid boost desired action/);
   assert.equal(state.pages.length, 1);
   assert.equal(state.pages[0].campaigns.length, 1);
+});
+
+test('results logging validates input and upserts by date idempotently', () => {
+  const state = createTrackerState();
+  const boost = addBoost(state, base);
+  const entry = logBoostResults(state, boost.id, { date: '2026-02-02', spend: '12.50', results: '4' });
+  assert.deepEqual(entry, { date: '2026-02-02', spend: 12.5, results: 4 });
+  logBoostResults(state, boost.id, { date: '2026-02-01', spend: 10, results: 3 });
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 15, results: 5 });
+  const log = findBoost(state, boost.id).boost.resultsLog;
+  assert.deepEqual(log, [{ date: '2026-02-01', spend: 10, results: 3 }, { date: '2026-02-02', spend: 15, results: 5 }]);
+  assert.equal(log.length, 2);
+  assert.throws(() => logBoostResults(state, boost.id, { date: '2026-13-40', spend: 1, results: 1 }), /valid results date/);
+  assert.throws(() => logBoostResults(state, boost.id, { date: '2026-02-03', spend: -1, results: 1 }), /Spend must be/);
+  assert.throws(() => logBoostResults(state, boost.id, { date: '2026-02-03', spend: 1, results: 1.5 }), /whole number/);
+  assert.throws(() => logBoostResults(state, boost.id, { date: '2026-02-03', spend: 0, results: 0 }), /spend, results, or both/);
+  assert.throws(() => logBoostResults(state, 'missing', { date: '2026-02-03', spend: 1, results: 1 }), /no longer exists/);
+});
+
+test('boost performance computes pacing and cost signals', () => {
+  const now = Date.parse('2026-02-03T12:00:00.000Z');
+  const state = createTrackerState();
+  const boost = addBoost(state, { ...base, targetCpa: 5 });
+  assert.equal(findBoost(state, boost.id).boost.targetCpa, 5);
+  assert.equal(boostPerformance(findBoost(state, boost.id).boost, now).signal, 'no-data');
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 10, results: 4 });
+  let perf = boostPerformance(findBoost(state, boost.id).boost, now);
+  assert.equal(perf.signal, 'on-track');
+  assert.equal(perf.actualCpa, 2.5);
+  assert.equal(perf.plannedDaily, 25);
+  assert.equal(perf.daysElapsed, 2);
+  assert.equal(perf.pacing, 10 / 50);
+  assert.equal(perf.pacingStatus, 'under');
+  logBoostResults(state, boost.id, { date: '2026-02-03', spend: 60, results: 8 });
+  perf = boostPerformance(findBoost(state, boost.id).boost, now);
+  assert.equal(perf.signal, 'watch');
+  assert.equal(perf.pacingStatus, 'over');
+  logBoostResults(state, boost.id, { date: '2026-02-03', spend: 200, results: 8 });
+  assert.equal(boostPerformance(findBoost(state, boost.id).boost, now).signal, 'over-target');
+});
+
+test('spend without results escalates against the target', () => {
+  const now = Date.parse('2026-02-02T12:00:00.000Z');
+  const state = createTrackerState();
+  const boost = addBoost(state, { ...base, targetCpa: 5 });
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 4, results: 0 });
+  assert.equal(boostPerformance(findBoost(state, boost.id).boost, now).signal, 'on-track');
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 6, results: 0 });
+  assert.equal(boostPerformance(findBoost(state, boost.id).boost, now).signal, 'watch');
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 11, results: 0 });
+  assert.equal(boostPerformance(findBoost(state, boost.id).boost, now).signal, 'over-target');
+  const noTarget = addBoost(state, { ...base, campaignName: 'No target', postUrl: '' });
+  logBoostResults(state, noTarget.id, { date: '2026-02-02', spend: 10, results: 2 });
+  assert.equal(boostPerformance(findBoost(state, noTarget.id).boost, now).signal, 'no-target');
+});
+
+test('editing a boost preserves logged results and can change or clear the target', () => {
+  const state = createTrackerState();
+  const boost = addBoost(state, { ...base, targetCpa: 5 });
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 10, results: 2 });
+  addBoost(state, { ...base, budget: 120 }, boost.id);
+  assert.deepEqual(findBoost(state, boost.id).boost.resultsLog, [{ date: '2026-02-02', spend: 10, results: 2 }]);
+  assert.equal(findBoost(state, boost.id).boost.targetCpa, 5);
+  addBoost(state, { ...base, targetCpa: 8 }, boost.id);
+  assert.equal(findBoost(state, boost.id).boost.targetCpa, 8);
+  addBoost(state, { ...base, targetCpa: '' }, boost.id);
+  assert.equal(findBoost(state, boost.id).boost.targetCpa, undefined);
+  assert.throws(() => addBoost(state, { ...base, targetCpa: -3 }, boost.id), /positive number/);
+});
+
+test('daily checklist ranks active boosts by urgency and skips archived or inactive ones', () => {
+  const now = Date.parse('2026-02-03T12:00:00.000Z');
+  const state = createTrackerState();
+  const over = addBoost(state, { ...base, targetCpa: 5 });
+  logBoostResults(state, over.id, { date: '2026-02-02', spend: 100, results: 5 });
+  const ok = addBoost(state, { ...base, campaignName: 'Second', postUrl: '', targetCpa: 5 });
+  logBoostResults(state, ok.id, { date: '2026-02-02', spend: 10, results: 4 });
+  const silent = addBoost(state, { ...base, campaignName: 'Third', postUrl: '' });
+  const scheduled = addBoost(state, { ...base, campaignName: 'Future', postUrl: '', startAt: '2026-03-01T12:00:00.000Z' });
+  const rows = dailyChecklist(state, now);
+  assert.deepEqual(rows.map(row => row.campaignName), ['Spring launch', 'Third', 'Second']);
+  assert.deepEqual(rows.map(row => row.performance.signal), ['over-target', 'no-data', 'on-track']);
+  assert.equal(rows[0].budget, 100);
+  assert.equal(rows.some(row => row.boostId === scheduled.id), false);
+  const next = structuredClone(state);
+  findBoost(next, over.id).boost.archived = true;
+  assert.equal(dailyChecklist(next, now).some(row => row.boostId === over.id), false);
+});
+
+test('results log and target survive export and import roundtrip and validate strictly', () => {
+  const state = createTrackerState();
+  const boost = addBoost(state, { ...base, targetCpa: 5 });
+  logBoostResults(state, boost.id, { date: '2026-02-02', spend: 12.5, results: 4 });
+  const restored = importTracker(exportTracker(state));
+  const restoredBoost = findBoost(restored, boost.id).boost;
+  assert.equal(restoredBoost.targetCpa, 5);
+  assert.deepEqual(restoredBoost.resultsLog, [{ date: '2026-02-02', spend: 12.5, results: 4 }]);
+  const tampered = JSON.parse(exportTracker(state));
+  tampered.pages[0].campaigns[0].boosts[0].resultsLog.push({ date: '2026-02-02', spend: 1, results: 1 });
+  assert.throws(() => importTracker(JSON.stringify(tampered)), /duplicate results dates/);
+  const invalid = JSON.parse(exportTracker(state));
+  invalid.pages[0].campaigns[0].boosts[0].targetCpa = -1;
+  assert.throws(() => importTracker(JSON.stringify(invalid)), /invalid target cost per result/);
 });

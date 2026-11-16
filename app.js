@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=tracker-renames-v9';
+import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost } from './src/tracker.js?v=performance-v1';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -314,6 +314,7 @@ function initTracker() {
     const trigger = editorTrigger;
     const triggerKey = trigger?.dataset?.focus ?? null;
     editor.reset();
+    closeResultsForm();
     editor.elements.namedItem('pageName').readOnly = false;
     document.querySelector('#tracker-page-edit-help').hidden = true;
     setForm('boostId', '');
@@ -361,6 +362,7 @@ function initTracker() {
   }
   function openRename(kind, entity, trigger) {
     resetEditor();
+    closeResultsForm();
     renameContext = { kind, id: entity.id, originalName: kind === 'page' ? entity.pageName : entity.name, focusKey: trigger.dataset.focus };
     renameName.value = renameContext.originalName;
     renameError.hidden = true;
@@ -387,6 +389,46 @@ function initTracker() {
     }
   });
   document.querySelector('#tracker-rename-cancel').addEventListener('click', () => closeRename(true));
+  const resultsForm = document.querySelector('#results-form');
+  const resultsError = document.querySelector('#results-form-error');
+  let resultsContext = null;
+  function closeResultsForm(restoreFocus = false) {
+    const key = resultsContext?.focusKey;
+    resultsContext = null;
+    resultsForm.hidden = true;
+    resultsError.hidden = true;
+    resultsError.textContent = '';
+    if (restoreFocus) (findByFocus(key) ?? document.querySelector('#tracker-heading')).focus({ preventScroll: true });
+  }
+  function openResultsForm(page, campaign, boost, trigger) {
+    resetEditor();
+    closeRename();
+    resultsContext = { boostId: boost.id, focusKey: trigger.dataset.focus };
+    resultsForm.reset();
+    resultsForm.elements.namedItem('boostId').value = boost.id;
+    const now = new Date();
+    resultsForm.elements.namedItem('date').value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    resultsError.hidden = true;
+    resultsError.textContent = '';
+    document.querySelector('#results-form-context').textContent = `Record the spend and results Meta reports for "${boost.purpose || campaign.name}". Logging the same date again replaces that day's entry.`;
+    resultsForm.hidden = false;
+    resultsForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector('#results-form-title').focus({ preventScroll: true });
+  }
+  resultsForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!resultsContext) return;
+    const data = Object.fromEntries(new FormData(resultsForm).entries());
+    try {
+      const next = cloneState();
+      logBoostResults(next, resultsContext.boostId, { date: data.date, spend: data.spend, results: data.results });
+      if (commit(next, 'Results logged.')) closeResultsForm(true);
+    } catch (error) {
+      resultsError.textContent = error.message;
+      resultsError.hidden = false;
+    }
+  });
+  document.querySelector('#results-cancel').addEventListener('click', () => closeResultsForm(true));
   function render() {
     const focusKey = document.activeElement?.dataset?.focus ?? null;
     clock = Date.now();
@@ -409,6 +451,44 @@ function initTracker() {
     const visibleBoosts = filtered.flatMap(page => page.campaigns.flatMap(campaign => campaign.boosts));
     const visibleBudget = visibleBoosts.reduce((sum, boost) => sum + (!boost.archived && scheduleStatus(boost, clock) !== 'Cancelled' ? boost.budget : 0), 0);
     document.querySelector('#tracker-summary').textContent = `${visibleBoosts.length} visible boost${visibleBoosts.length === 1 ? '' : 's'} · Visible planned budget: ${money.format(visibleBudget)}`;
+    const dailyCheck = document.querySelector('#daily-check');
+    const dailyList = document.querySelector('#daily-check-list');
+    const dailyRows = dailyChecklist(state, clock);
+    dailyCheck.hidden = !dailyRows.length;
+    dailyList.replaceChildren();
+    const signalLabels = { 'on-track': 'On track', watch: 'Watch', 'over-target': 'Over target', 'no-target': 'No target set', 'no-data': 'No data yet' };
+    const signalAdvice = {
+      'over-target': 'Cost per result is more than double the target. Pause this boost or change the creative before spending more.',
+      watch: 'Cost per result is above target. Watch it today and refresh the creative if it does not improve.',
+      'on-track': 'Cost per result is within target. Keep it running.',
+      'no-target': 'Results are logged but no target cost per result is set. Edit the boost to add one.',
+      'no-data': 'No results logged yet. Log spend and results from Meta to get a recommendation.'
+    };
+    for (const row of dailyRows) {
+      const perf = row.performance;
+      const item = document.createElement('div');
+      item.className = 'daily-check-row';
+      const badge = document.createElement('span');
+      badge.className = `signal-badge signal-${perf.signal}`;
+      badge.textContent = signalLabels[perf.signal];
+      const title = document.createElement('span');
+      title.className = 'daily-check-title';
+      title.textContent = `${row.pageName} · ${row.purpose}`;
+      const metrics = document.createElement('span');
+      metrics.className = 'daily-check-metrics';
+      const pieces = [`Spent ${money.format(perf.spendToDate)} of ${money.format(row.budget)} planned`, `${perf.resultsToDate} result${perf.resultsToDate === 1 ? '' : 's'}`];
+      if (perf.actualCpa !== null) pieces.push(`cost per result ${money.format(perf.actualCpa)}`);
+      else if (perf.spendToDate > 0) pieces.push('no results yet');
+      if (perf.targetCpa) pieces.push(`target ${money.format(perf.targetCpa)}`);
+      if (perf.pacingStatus === 'under') pieces.push('spending slower than planned');
+      if (perf.pacingStatus === 'over') pieces.push('spending faster than planned');
+      metrics.textContent = pieces.join(' · ');
+      const advice = document.createElement('span');
+      advice.className = 'daily-check-action';
+      advice.textContent = signalAdvice[perf.signal];
+      item.append(badge, title, metrics, advice);
+      dailyList.append(item);
+    }
     groups.replaceChildren();
     for (const page of filtered) {
       const section = document.createElement('section'); section.className = 'tracker-page-group';
@@ -442,6 +522,16 @@ function initTracker() {
           const purpose = document.createElement('p');
           purpose.textContent = `Purpose: ${boost.purpose || boost.goal || 'Not specified'} · Action: ${boost.desiredAction || 'Not recorded'}`;
           card.append(purpose);
+          const perf = boostPerformance(boost, clock);
+          if (boost.targetCpa || (boost.resultsLog ?? []).length) {
+            const perfLine = document.createElement('p');
+            perfLine.className = 'boost-performance';
+            const perfPieces = [`Logged: ${money.format(perf.spendToDate)} spend`, `${perf.resultsToDate} result${perf.resultsToDate === 1 ? '' : 's'}`];
+            if (perf.actualCpa !== null) perfPieces.push(`cost per result ${money.format(perf.actualCpa)}`);
+            if (perf.targetCpa) perfPieces.push(`target ${money.format(perf.targetCpa)}`);
+            perfLine.textContent = perfPieces.join(' · ');
+            card.append(perfLine);
+          }
           const dates = document.createElement('p');
           dates.textContent = `Created ${boost.createdAt ? formatDate(boost.createdAt) : 'not recorded'} · Starts ${formatDate(boost.startAt)} · Ends ${formatDate(boost.endAt)}`;
           card.append(dates);
@@ -455,6 +545,7 @@ function initTracker() {
           else countdown.textContent = status === 'Completed' ? 'Schedule completed' : status === 'Cancelled' ? 'Schedule cancelled' : `Countdown paused (${status})`;
           countdown.className = remaining > 0 && remaining <= ENDING_SOON_MS && status === 'Active' ? 'ending-soon' : ''; card.append(countdown);
           const actions = document.createElement('div'); actions.className = 'boost-actions';
+          actions.append(makeButton('Log results', event => openResultsForm(page, campaign, boost, event.currentTarget), `log:${boost.id}`));
           actions.append(makeButton('Edit', event => editBoost(page, campaign, boost, event.currentTarget), `edit:${boost.id}`));
           actions.append(makeButton(boost.archived ? 'Restore' : 'Archive', () => {
             const next = cloneState(); findBoost(next, boost.id).boost.archived = !boost.archived;
@@ -508,7 +599,7 @@ function initTracker() {
       boostId: boost.id, campaignId: campaign.id, pageName: page.pageName, pageUrl: page.pageUrl,
       createdLocal: boost.createdAt ? isoToLocalInput(boost.createdAt) : '',
       startLocal: isoToLocalInput(boost.startAt), durationDays: boost.durationDays,
-      budget: boost.budget, purpose: boost.purpose || boost.goal || campaign.name,
+      budget: boost.budget, targetCpa: boost.targetCpa ?? '', purpose: boost.purpose || boost.goal || campaign.name,
       desiredAction: boost.desiredAction || ''
     }, trigger);
   }
@@ -553,6 +644,7 @@ function initTracker() {
         startAt: localInputToIso(data.startLocal),
         durationDays: Number(data.durationDays),
         budget: Number(data.budget),
+        targetCpa: data.targetCpa,
         purpose: data.purpose,
         desiredAction: data.desiredAction
       }, data.boostId || null, editorContext);
