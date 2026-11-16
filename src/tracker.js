@@ -14,7 +14,7 @@ function boundedString(value, label, max = 500, required = true) {
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new Error(`Backup contains an invalid ${label}.`);
   return value;
 }
-function pageKey(value) { return value.trim().toLocaleLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''); }
+export function pageKey(value) { return value.trim().toLocaleLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''); }
 
 export function parseInstant(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) throw new Error('Invalid ISO 8601 timestamp.');
@@ -168,6 +168,87 @@ export function replaceTracker(storage, replacement) {
   return structuredClone(replacement);
 }
 
+export function trackerCounts(state) {
+  let campaigns = 0;
+  let boosts = 0;
+  for (const page of state.pages) {
+    campaigns += page.campaigns.length;
+    for (const campaign of page.campaigns) boosts += campaign.boosts.length;
+  }
+  return { clients: state.clients.length, pages: state.pages.length, campaigns, boosts };
+}
+
+function collectIds(state) {
+  const ids = new Set();
+  for (const client of state.clients) ids.add(client.id);
+  for (const page of state.pages) {
+    ids.add(page.id);
+    for (const campaign of page.campaigns) {
+      ids.add(campaign.id);
+      for (const boost of campaign.boosts) ids.add(boost.id);
+    }
+  }
+  return ids;
+}
+
+export function mergeTrackerStates(current, incoming) {
+  validateState(current);
+  validateState(incoming);
+  const merged = structuredClone(current);
+  const ids = collectIds(merged);
+  const freshId = () => {
+    let id;
+    do { id = uid(); } while (ids.has(id));
+    ids.add(id);
+    return id;
+  };
+  const clientsByName = new Map(merged.clients.map(client => [client.name.trim().toLocaleLowerCase(), client]));
+  const clientIds = new Map();
+  const addedClientIds = new Set();
+  for (const client of incoming.clients) {
+    const nameKey = client.name.trim().toLocaleLowerCase();
+    let target = clientsByName.get(nameKey);
+    if (!target) {
+      const id = ids.has(client.id) ? freshId() : client.id;
+      ids.add(id);
+      target = { id, name: client.name };
+      merged.clients.push(target);
+      clientsByName.set(nameKey, target);
+      addedClientIds.add(id);
+    }
+    clientIds.set(client.id, target.id);
+  }
+  for (const page of incoming.pages) {
+    const clientId = clientIds.get(page.clientId);
+    const key = pageKey(page.pageUrl);
+    let targetPage = merged.pages.find(item => pageKey(item.pageUrl) === key);
+    if (!targetPage) {
+      const id = ids.has(page.id) ? freshId() : page.id;
+      ids.add(id);
+      targetPage = { id, clientId, pageName: page.pageName, pageUrl: page.pageUrl, campaigns: [] };
+      merged.pages.push(targetPage);
+    }
+    for (const campaign of page.campaigns) {
+      const campaignKey = campaign.name.trim().toLocaleLowerCase();
+      let targetCampaign = targetPage.campaigns.find(item => item.name.trim().toLocaleLowerCase() === campaignKey);
+      if (!targetCampaign) {
+        const id = ids.has(campaign.id) ? freshId() : campaign.id;
+        ids.add(id);
+        targetCampaign = { id, name: campaign.name, goal: campaign.goal, boosts: [] };
+        targetPage.campaigns.push(targetCampaign);
+      }
+      for (const boost of campaign.boosts) {
+        if (ids.has(boost.id)) continue;
+        const copy = structuredClone(boost);
+        ids.add(copy.id);
+        targetCampaign.boosts.push(copy);
+      }
+    }
+  }
+  merged.clients = merged.clients.filter(client => !addedClientIds.has(client.id) || merged.pages.some(page => page.clientId === client.id));
+  return validateState(merged);
+}
+
 export function formatSaveFailure(error) {
   return `Could not save changes: ${error?.message ?? 'browser storage is unavailable'}. No changes were applied. Check browser storage space or restore a valid backup, then retry.`;
 }
@@ -221,6 +302,10 @@ export function upsertBoost(state, input, boostId = null) {
   let campaign = existingCampaign ?? (input.campaignId ? page?.campaigns.find(c => c.id === input.campaignId) : null);
   if (input.campaignId && !campaign) throw new Error('Selected campaign no longer exists.');
   if (boostId && input.campaignId && existingCampaign?.id !== input.campaignId) throw new Error('A boost cannot be moved to another campaign.');
+  if (!campaign && !boostId && page) {
+    const nameKey = campaignName.toLocaleLowerCase();
+    campaign = page.campaigns.find(item => item.name.trim().toLocaleLowerCase() === nameKey) ?? null;
+  }
   const status = input.status ?? 'Scheduled';
   if (!BOOST_STATUSES.includes(status)) throw new Error('Choose a valid boost status.');
   if (!client) { client = { id: uid(), name: clientName }; state.clients.push(client); }

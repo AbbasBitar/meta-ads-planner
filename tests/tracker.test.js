@@ -1,7 +1,7 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, removeBoost, replaceTracker, saveTracker, scheduleStatus, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
+import { BOOST_ACTIONS, COUNTDOWN_REFRESH_MS, DAY_MS, ENDING_SOON_MS, MAX_BACKUP_BYTES, STORAGE_KEY, calculateEndDate, createTrackerState, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, loadTracker, localInputToIso, mergeTrackerStates, removeBoost, replaceTracker, saveTracker, scheduleStatus, trackerCounts, transactTracker, upsertBoost, upsertTrackedBoost, validateState } from '../src/tracker.js';
 
 const base = { clientName: 'Client A', pageName: 'Cedar Bakery', pageUrl: 'https://instagram.com/cedar', campaignName: 'Spring launch', goal: 'Messages', postUrl: 'https://instagram.com/p/shared', budget: 100, durationDays: 4, startAt: '2026-02-01T12:00:00.000Z' };
 function memoryStorage(options = {}) { let value = options.initial ?? null; return { getItem: key => key === STORAGE_KEY ? value : null, setItem: (key, next) => { if (options.failWrite) throw new Error('quota exceeded'); if (key === STORAGE_KEY) value = next; }, get value() { return value; } }; }
@@ -56,6 +56,32 @@ test('separate clients, pages, campaigns and overlapping boosts retain stable re
   assert.equal(findBoost(state, otherClientBoost.id).boost.id, otherClientBoost.id);
   assert.equal(removeBoost(state, secondCampaignBoost.id), true);
   assert.equal(state.pages[0].campaigns.length, 1);
+});
+
+test('a repeated save reuses the same page and campaign instead of duplicating', () => {
+  const state = createTrackerState();
+  const first = addBoost(state, base);
+  const second = addBoost(state, { ...base, startAt: '2026-02-03T12:00:00.000Z' });
+  assert.equal(state.clients.length, 1);
+  assert.equal(state.pages.length, 1);
+  assert.equal(state.pages[0].campaigns.length, 1);
+  assert.equal(findBoost(state, second.id).campaign.id, findBoost(state, first.id).campaign.id);
+});
+
+test('merging a backup adds new records without overwriting current data and is idempotent', () => {
+  const current = createTrackerState();
+  const currentBoost = addBoost(current, { ...base, campaignName: 'Current campaign' });
+  const incoming = createTrackerState();
+  const incomingBoost = addBoost(incoming, {
+    ...base, clientName: 'Client B', pageName: 'Olive Studio', pageUrl: '@olive',
+    campaignName: 'Incoming campaign', postUrl: 'https://instagram.com/p/other'
+  });
+  const merged = mergeTrackerStates(current, incoming);
+  assert.equal(trackerCounts(merged).boosts, 2);
+  assert.equal(findBoost(merged, currentBoost.id).boost.budget, 100);
+  assert.equal(findBoost(merged, incomingBoost.id).boost.budget, 100);
+  const again = mergeTrackerStates(merged, incoming);
+  assert.equal(trackerCounts(again).boosts, 2);
 });
 
 test('page uniqueness and page ownership are enforced without partial mutation', () => {

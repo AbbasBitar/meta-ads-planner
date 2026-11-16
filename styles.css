@@ -211,3 +211,14 @@
   #tracker .tracker-quick-editor .field-grid .span-2 {grid-column:1}
   #tracker .tracker-editor-actions .button {flex:1}
 }
+
+/* Safe backup import review and focus management (v5) */
+.button-danger{background:#8a2f24;border-color:#8a2f24;color:#fff}
+.button-danger:hover{background:#71261d;border-color:#71261d}
+#tracker .tracker-import-review{display:grid;gap:12px;margin:0 0 18px;padding:16px 18px;border:1px solid #e3c9a4;border-radius:12px;background:#fff8ec}
+#tracker .tracker-import-review[hidden]{display:none}
+#tracker .tracker-import-review p{margin:0;color:var(--ink);font-size:13px;line-height:1.6}
+#tracker .tracker-import-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+#tracker .tracker-import-actions .button{min-height:40px;padding:8px 14px;flex:0 0 auto}
+#tracker-heading:focus,#tracker-editor-title:focus,#tracker-import-summary:focus{outline:2px solid var(--green);outline-offset:4px;border-radius:4px}
+@media(max-width:480px){#tracker .tracker-import-actions{flex-direction:column;align-items:stretch}#tracker .tracker-import-actions .button{width:100%}}

@@ -107,6 +107,17 @@ test('frontend copies the generated prompt and links to ChatGPT without campaign
   assert.match(html, /href="https:\/\/chatgpt\.com\/" target="_blank" rel="noopener noreferrer"/);
 });
 
+test('frontend captures the copy button before awaiting clipboard access', async () => {
+  const app = makeApp(sample);
+  app.fire('#campaign-form', 'submit', { preventDefault() {} });
+  const button = new MockElement();
+  const event = { currentTarget: button };
+  const pending = app.fire('#copy-prompt', 'click', event);
+  event.currentTarget = null;
+  await pending;
+  assert.equal(button.focused, true);
+});
+
 test('frontend safely falls back when clipboard permission is unavailable', async () => {
   const app = makeApp(sample);
   app.clipboard.writeText = async () => { throw new Error('clipboard unavailable'); };
