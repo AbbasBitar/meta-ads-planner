@@ -1,5 +1,5 @@
 import { calculateBudget, generateChatGPTPrompt, validateCampaign } from './src/intake.js';
-import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportResultsCsv, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost, weeklySummary } from './src/tracker.js?v=results-csv-v1';
+import { boostPerformance, calculateEndDate, COUNTDOWN_REFRESH_MS, createTrackerState, dailyChecklist, DAY_MS, ENDING_SOON_MS, exportResultsCsv, exportTracker, filterBoosts, findBoost, formatSaveFailure, importTracker, isoToLocalInput, loadTracker, localInputToIso, logBoostResults, MAX_BACKUP_BYTES, mergeTrackerStates, pageKey, removeBoost, renameTrackedEntity, replaceTracker, scheduleStatus, STORAGE_KEY, trackerCounts, upsertTrackedBoost, weeklySummary } from './src/tracker.js?v=client-report-v1';
 
 const form = document.querySelector('#campaign-form');
 const errors = document.querySelector('#form-errors');
@@ -429,6 +429,80 @@ function initTracker() {
     }
   });
   document.querySelector('#results-cancel').addEventListener('click', () => closeResultsForm(true));
+  const reportSection = document.querySelector('#client-report');
+  const reportContent = document.querySelector('#client-report-content');
+  const reportClient = document.querySelector('#report-client');
+  function openReport(trigger) {
+    const client = state.clients.find(item => item.id === reportClient.value);
+    if (!client) return;
+    const summary = weeklySummary(state, clock, client.id);
+    reportContent.replaceChildren();
+    const heading = document.createElement('h2');
+    heading.id = 'client-report-heading';
+    heading.tabIndex = -1;
+    heading.textContent = `Client report — ${client.name}`;
+    const meta = document.createElement('p');
+    meta.className = 'report-meta';
+    meta.textContent = `${summary.startDate} to ${summary.endDate} · Generated ${formatDate(new Date(clock).toISOString())}`;
+    reportContent.append(heading, meta);
+    if (!summary.pages.length) {
+      const empty = document.createElement('p');
+      empty.className = 'report-meta';
+      empty.textContent = 'No logged results in the last 7 days for this client. Log results from the boost cards, then reopen the report.';
+      reportContent.append(empty);
+    } else {
+      const totals = document.createElement('p');
+      totals.className = 'report-totals';
+      totals.textContent = `Total: ${money.format(summary.totals.spend)} spend · ${summary.totals.results} result${summary.totals.results === 1 ? '' : 's'}${summary.totals.cpa !== null ? ` · average cost per result ${money.format(summary.totals.cpa)}` : ''}`;
+      reportContent.append(totals);
+      for (const page of summary.pages) {
+        const block = document.createElement('div');
+        block.className = 'report-page';
+        const pageHeading = document.createElement('h3');
+        pageHeading.textContent = page.pageName;
+        block.append(pageHeading);
+        const table = document.createElement('table');
+        table.className = 'report-table';
+        const head = document.createElement('tr');
+        for (const label of ['Boost', 'Spend', 'Results', 'Cost per result', 'Target']) {
+          const th = document.createElement('th');
+          th.textContent = label;
+          head.append(th);
+        }
+        table.append(head);
+        for (const boost of page.boosts) {
+          const tr = document.createElement('tr');
+          const cells = [boost.purpose, money.format(boost.spend), String(boost.results), boost.cpa !== null ? money.format(boost.cpa) : '—', boost.targetCpa !== null ? money.format(boost.targetCpa) : '—'];
+          for (const value of cells) {
+            const td = document.createElement('td');
+            td.textContent = value;
+            tr.append(td);
+          }
+          table.append(tr);
+        }
+        block.append(table);
+        reportContent.append(block);
+      }
+      if (summary.best && summary.worst && summary.best.boostId !== summary.worst.boostId) {
+        const extremes = document.createElement('p');
+        extremes.className = 'report-extremes';
+        extremes.textContent = `Best cost per result: ${summary.best.purpose} (${summary.best.pageName}) at ${money.format(summary.best.cpa)}. Worst: ${summary.worst.purpose} (${summary.worst.pageName}) at ${money.format(summary.worst.cpa)}.`;
+        reportContent.append(extremes);
+      }
+    }
+    reportSection.hidden = false;
+    if (document.body) document.body.style.overflow = 'hidden';
+    heading.focus({ preventScroll: true });
+    reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.querySelector('#report-open').addEventListener('click', event => openReport(event.currentTarget));
+  document.querySelector('#report-close').addEventListener('click', () => {
+    reportSection.hidden = true;
+    reportContent.replaceChildren();
+    if (document.body) document.body.style.overflow = '';
+    document.querySelector('#report-open')?.focus({ preventScroll: true });
+  });
+  document.querySelector('#report-print').addEventListener('click', () => window.print());
   function render() {
     const focusKey = document.activeElement?.dataset?.focus ?? null;
     clock = Date.now();
@@ -447,6 +521,13 @@ function initTracker() {
       const option = document.createElement('option'); option.value = page.pageUrl; option.textContent = `${client?.name ?? 'Client'} — ${page.pageName}`; pageFilter.append(option);
     }
     pageFilter.value = selected;
+    const selectedClient = reportClient.value;
+    reportClient.replaceChildren();
+    for (const client of state.clients) {
+      if (!state.pages.some(page => page.clientId === client.id)) continue;
+      const option = document.createElement('option'); option.value = client.id; option.textContent = client.name; reportClient.append(option);
+    }
+    reportClient.value = selectedClient;
     const filtered = filterBoosts(state, { query: document.querySelector('#tracker-search').value, pageUrl: pageFilter.value, status: document.querySelector('#tracker-status').value, ending: document.querySelector('#tracker-ending').value, archived: document.querySelector('#tracker-archived').value || 'hide', now: clock });
     const visibleBoosts = filtered.flatMap(page => page.campaigns.flatMap(campaign => campaign.boosts));
     const visibleBudget = visibleBoosts.reduce((sum, boost) => sum + (!boost.archived && scheduleStatus(boost, clock) !== 'Cancelled' ? boost.budget : 0), 0);

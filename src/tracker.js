@@ -539,7 +539,7 @@ export function dailyChecklist(state, now = Date.now()) {
 }
 
 
-export function weeklySummary(state, now = Date.now()) {
+export function weeklySummary(state, now = Date.now(), clientId = null) {
   const endDate = new Date(now - new Date(now).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const startDate = new Date(Date.parse(`${endDate}T00:00:00.000Z`) - 6 * DAY_MS).toISOString().slice(0, 10);
   const pages = [];
@@ -548,6 +548,7 @@ export function weeklySummary(state, now = Date.now()) {
   let best = null;
   let worst = null;
   for (const page of state.pages) {
+    if (clientId && page.clientId !== clientId) continue;
     const client = state.clients.find(item => item.id === page.clientId);
     const boosts = [];
     let pageSpend = 0;
@@ -561,7 +562,7 @@ export function weeklySummary(state, now = Date.now()) {
         const cpa = results > 0 ? spend / results : null;
         pageSpend += spend;
         pageResults += results;
-        boosts.push({ boostId: boost.id, campaignName: campaign.name, purpose: boost.purpose || boost.goal || campaign.name, spend, results, cpa });
+        boosts.push({ boostId: boost.id, campaignName: campaign.name, purpose: boost.purpose || boost.goal || campaign.name, targetCpa: boost.targetCpa ?? null, spend, results, cpa });
         if (cpa !== null) {
           if (!best || cpa < best.cpa) best = { boostId: boost.id, pageName: page.pageName, purpose: boost.purpose || boost.goal || campaign.name, cpa };
           if (!worst || cpa > worst.cpa) worst = { boostId: boost.id, pageName: page.pageName, purpose: boost.purpose || boost.goal || campaign.name, cpa };

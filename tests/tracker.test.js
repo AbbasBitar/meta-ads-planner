@@ -479,3 +479,21 @@ test('results CSV export formats rows, quotes unsafe cells, and sorts by date', 
   assert.equal(lines.length, 3);
   assert.equal(exportResultsCsv(createTrackerState()).trim().split(/\r?\n/).length, 1, 'empty state exports only the header');
 });
+
+test('weekly summary filters by client for reports', () => {
+  const now = Date.parse('2026-02-10T15:00:00.000Z');
+  const state = createTrackerState();
+  const a = addBoost(state, base);
+  const other = addBoost(state, { ...base, clientName: 'Client B', pageName: 'Olive Studio', pageUrl: '@olive', campaignName: 'Launch', postUrl: '' });
+  logBoostResults(state, a.id, { date: '2026-02-09', spend: 20, results: 10 });
+  logBoostResults(state, other.id, { date: '2026-02-09', spend: 12, results: 6 });
+  const clientA = state.clients.find(item => item.name === 'Client A');
+  const clientB = state.clients.find(item => item.name === 'Client B');
+  const filtered = weeklySummary(state, now, clientA.id);
+  assert.equal(filtered.pages.length, 1);
+  assert.equal(filtered.pages[0].pageName, 'Cedar Bakery');
+  assert.deepEqual(filtered.totals, { spend: 20, results: 10, cpa: 2 });
+  assert.equal(filtered.pages[0].boosts[0].targetCpa, null);
+  assert.equal(weeklySummary(state, now, clientB.id).totals.spend, 12);
+  assert.equal(weeklySummary(state, now, 'missing-client').pages.length, 0);
+});

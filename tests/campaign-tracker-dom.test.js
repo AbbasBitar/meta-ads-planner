@@ -102,7 +102,8 @@ function setupTracker(state = tracker.createTrackerState()) {
     '#track-campaign', '#tracker-cancel-edit', '#tracker-export', '#tracker-import', '#tracker-archived', '#tracker-summary', '#tracker-clear-filters',
     '#tracker-rename', '#tracker-rename-name', '#tracker-rename-error', '#tracker-rename-title', '#tracker-rename-help', '#tracker-rename-cancel', '#tracker-page-edit-help',
     '#daily-check', '#daily-check-list', '#daily-check-heading', '#results-form', '#results-form-error', '#results-form-title', '#results-form-context', '#results-cancel',
-    '#weekly-summary', '#weekly-summary-list', '#weekly-summary-heading', '#tracker-export-results'
+    '#weekly-summary', '#weekly-summary-list', '#weekly-summary-heading', '#tracker-export-results',
+    '#client-report', '#client-report-content', '#report-client', '#report-open', '#report-close', '#report-print'
   ];
   for (const selector of selectorIds) elements.set(selector, new ElementMock());
   elements.set('#campaign-form', form);
@@ -146,7 +147,8 @@ function setupTracker(state = tracker.createTrackerState()) {
     setInterval: () => { intervals.started += 1; return intervals.nextId++; },
     clearInterval: () => { intervals.cleared += 1; },
     addEventListener: (type, callback) => { (windowListeners[type] ??= []).push(callback); },
-    open: url => { window.opened = url; return { opener: null }; }
+    open: url => { window.opened = url; return { opener: null }; },
+    print: () => { window.printed = true; }
   };
   const appSource = readFileSync('app.js', 'utf8');
   const namedImport = appSource.match(/^import \{([^}]+)\} from '\.\/src\/tracker\.js(?:\?v=[^']+)?';/m);
@@ -524,4 +526,33 @@ test('weekly summary renders totals and page rows for logged results', () => {
   assert.ok(list.children.length >= 2, 'totals row and page row are rendered');
   assert.match(list.children[0].children[1].textContent, /All pages: \$25\.00 spend · 5 results/);
   assert.match(list.children[0].children[1].textContent, /avg cost per result \$5\.00/);
+});
+
+test('client report opens with totals, prints, and closes cleanly', () => {
+  const now = Date.now();
+  const state = tracker.createTrackerState();
+  const boost = tracker.upsertBoost(state, {
+    clientName: 'Report Client', pageName: 'Report Page', pageUrl: '@report',
+    campaignName: 'Report Campaign', goal: 'Messages', postUrl: '',
+    budget: 100, durationDays: 4, startAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+    targetCpa: 5
+  });
+  const today = new Date(now - new Date(now).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  tracker.logBoostResults(state, boost.id, { date: today, spend: 25, results: 5 });
+  const app = setupTracker(state);
+  const open = app.elements.get('#report-open');
+  app.elements.get('#report-client').value = state.clients[0].id;
+  open.listeners.click({ currentTarget: open });
+  assert.equal(app.elements.get('#client-report').hidden, false);
+  const content = app.elements.get('#client-report-content');
+  assert.match(content.children[0].textContent, /Client report — Report Client/);
+  const totals = content.children.find(child => child.className === 'report-totals');
+  assert.match(totals.textContent, /\$25\.00 spend · 5 results/);
+  assert.match(totals.textContent, /average cost per result \$5\.00/);
+  const table = content.querySelectorAll('.report-table')[0];
+  assert.ok(table, 'report renders a table per page');
+  app.elements.get('#report-print').listeners.click({});
+  assert.equal(app.window.printed, true);
+  app.elements.get('#report-close').listeners.click({});
+  assert.equal(app.elements.get('#client-report').hidden, true);
 });
