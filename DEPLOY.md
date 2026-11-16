@@ -20,7 +20,5 @@ The repository previously contained a Cloudflare Worker with Pages Functions, KV
 Status after the v2 cutover (2026-11-17):
 
 - v2 is live on Cloudflare Pages project `meta-ads-planner`: https://meta-ads-planner.pages.dev and https://ads-planner.teckhub.net (deployed via `wrangler pages deploy dist --project-name meta-ads-planner`).
-- The legacy Worker `meta-ads-planner-apicopy` was deleted. The old `/api/submit` endpoint no longer exists.
-- Remaining account-level leftovers, deleted manually when no longer needed:
-  - KV namespace `ADS_PLANNER_KV` (`3d500e63351848689b46bb0bc0d01fca`) — holds legacy v1 submission data.
-  - The Cloudflare Access application gating `ads-planner.teckhub.net` (Zero Trust dashboard) — remove it only if the site should be public.
+- The legacy Worker `meta-ads-planner-apicopy` was deleted, along with KV namespace `ADS_PLANNER_KV`. The old `/api/submit` endpoint no longer exists.
+- Remaining account-level leftover: the Cloudflare Access application gating `ads-planner.teckhub.net` (AUD `09495c2b…4eae3`). Remove it in the Zero Trust dashboard (**Access → Applications → Delete**) if the site should be public; wrangler's OAuth token has no Zero Trust permissions, so this step is dashboard-only.
