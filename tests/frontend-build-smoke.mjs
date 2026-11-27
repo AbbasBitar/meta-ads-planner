@@ -26,6 +26,6 @@ test('build contains only the usable v2 frontend assets', () => {
   assert.match(app, /initTracker/);
   const theme = readFileSync('dist/theme.js', 'utf8');
   assert.match(theme, /prefers-color-scheme: dark/);
-  assert.match(theme, /meta-ads-planner\\.theme\\.v1/);
+  assert.ok(theme.includes('meta-ads-planner.theme.v1'), 'theme storage key must be present');
   assert.doesNotMatch(app, /fetch\s*\(|\/api\/submit|telegram|openrouter/i);
 });
