@@ -6,6 +6,10 @@ The Campaign Tracker stores planned boosts in this browser's local storage. The 
 
 Imported backups are validated and previewed before anything is written. Choose **Merge into current data** to keep existing records and add new ones, **Replace all data** to discard the current tracker first, or **Cancel** to leave everything unchanged. After a merge or replace, **Undo import** restores the previous tracker data until the next tracker change.
 
+## Appearance
+
+The header has a **Dark mode / Light mode** toggle. Without a saved selection, the interface follows the device's light/dark appearance setting. An explicit selection is saved in browser local storage and reused on subsequent visits; switching the appearance does not modify tracker or campaign records. The client report automatically uses a light print layout for legibility.
+
 ## How it works
 
 1. Enter business, page, product, audience, post, budget, duration, and ordering details.
