@@ -300,3 +300,175 @@ input[aria-invalid="true"]:focus,select[aria-invalid="true"]:focus,textarea[aria
   .client-report{position:static;padding:0;overflow:visible;background:#fff}
   .report-sheet{border:0;box-shadow:none;padding:0;max-width:none;border-radius:0}
 }
+
+
+/* Theme switcher: the initial theme is applied by theme.js in <head>. */
+.header-note{margin-left:auto}
+.theme-toggle{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  flex:none;min-height:38px;padding:7px 12px;
+  border:1px solid var(--line);border-radius:10px;
+  background:var(--white);color:var(--ink);
+  font:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  transition:background-color .16s,border-color .16s,color .16s
+}
+.theme-toggle:hover{border-color:var(--green);background:var(--mint)}
+.theme-toggle:focus-visible{outline:3px solid #57916e88;outline-offset:3px}
+.theme-toggle-icon{width:18px;text-align:center;font-size:17px;line-height:1}
+@media(max-width:650px){.theme-toggle{min-height:38px}.theme-toggle-label{font-size:12px}}
+@media(max-width:380px){.theme-toggle{padding:8px 9px}.theme-toggle-label{font-size:11px}}
+
+/* Dark mode: custom tokens plus overrides for legacy hard-coded light surfaces. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ink:#e9f3eb;
+  --muted:#abbeb1;
+  --line:#35483b;
+  --green:#9bdfb3;
+  --green-dark:#2e8055;
+  --mint:#203d2e;
+  --white:#17231c;
+  --shadow:0 12px 38px #00000038;
+  color:var(--ink);
+  background:#101813;
+}
+:root[data-theme="dark"] body{background:#101813;color:var(--ink)}
+:root[data-theme="dark"] .site-header{background:#17231c;border-color:var(--line)}
+:root[data-theme="dark"] .brand-mark{background:#2f7852;color:#fff}
+:root[data-theme="dark"] .theme-toggle{
+  background:#223329;border-color:#415946;color:var(--ink)
+}
+:root[data-theme="dark"] .theme-toggle:hover{background:#2c4434}
+:root[data-theme="dark"] .theme-toggle:focus-visible{outline-color:#a5ddb6}
+:root[data-theme="dark"] .step{background:var(--mint);color:var(--green)}
+:root[data-theme="dark"] label,
+:root[data-theme="dark"] legend{color:#d9e7dc}
+:root[data-theme="dark"] .required{color:#f1aa9f}
+:root[data-theme="dark"] .optional{color:#a2b4a9}
+:root[data-theme="dark"] input:not([type="radio"]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea{
+  background:#1b2a21;color:var(--ink);border-color:#405748
+}
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder{color:#98aa9e;opacity:1}
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] select:focus,
+:root[data-theme="dark"] textarea:focus{
+  outline:none;border-color:#a4deb6;box-shadow:0 0 0 3px #89d7a633
+}
+:root[data-theme="dark"] .input-prefix>span{color:var(--muted)}
+:root[data-theme="dark"] .choice span{
+  border-color:#405748;background:#1b2a21;color:#d0e0d5
+}
+:root[data-theme="dark"] .choice input:checked+span{
+  background:var(--mint);border-color:#75c391;color:#b8edc9
+}
+:root[data-theme="dark"] .choice input:focus-visible+span{
+  outline-color:#a5ddb6
+}
+:root[data-theme="dark"] .budget-summary{
+  background:#1c2c22;border-color:var(--line)
+}
+:root[data-theme="dark"] .button-primary{background:#2e7850;color:#fff;border-color:#2e7850}
+:root[data-theme="dark"] .button-primary:hover{background:#23603f;border-color:#23603f}
+:root[data-theme="dark"] .button-secondary{
+  background:#203027;color:var(--ink);border-color:#415846
+}
+:root[data-theme="dark"] .button-secondary:hover{background:#2b4033}
+:root[data-theme="dark"] .button-danger{background:#9a4034;border-color:#9a4034;color:#fff}
+:root[data-theme="dark"] .button-danger:hover{background:#7b3129;border-color:#7b3129}
+:root[data-theme="dark"] .form-errors{
+  color:#ffd1c7;background:#39231f;border-color:#87544b
+}
+:root[data-theme="dark"] .form-errors a:hover{color:#fff0e9}
+:root[data-theme="dark"] .field-error,
+:root[data-theme="dark"] #tracker-rename-error,
+:root[data-theme="dark"] #results-form-error{color:#ffb5a7}
+:root[data-theme="dark"] input[aria-invalid="true"],
+:root[data-theme="dark"] select[aria-invalid="true"],
+:root[data-theme="dark"] textarea[aria-invalid="true"]{
+  background:#362320;border-color:#e28a78
+}
+:root[data-theme="dark"] .choice input[aria-invalid="true"]+span{
+  background:#362320;border-color:#e28a78;color:#ffb9a9
+}
+:root[data-theme="dark"] .prompt-stale,
+:root[data-theme="dark"] #tracker .tracker-import-review{
+  background:#33291a;border-color:#79613b
+}
+:root[data-theme="dark"] .prompt-stale p{color:#f4d29c}
+:root[data-theme="dark"] .prompt-stale .button{
+  background:#43341f;color:#f5ddb4;border-color:#886e46
+}
+:root[data-theme="dark"] .ready-badge.is-stale,
+:root[data-theme="dark"] .signal-watch{
+  background:#49371e;color:#f6d6a2
+}
+:root[data-theme="dark"] .signal-over-target{
+  background:#4b2923;color:#ffbcb0
+}
+:root[data-theme="dark"] .signal-no-data,
+:root[data-theme="dark"] .signal-no-target{
+  background:#2b3a30;color:#c6d5cb
+}
+:root[data-theme="dark"] .tracker-message--error{color:#ffb1a1}
+:root[data-theme="dark"] .tracker-message--warning,
+:root[data-theme="dark"] .boost-card .ending-soon{color:#eec48e}
+:root[data-theme="dark"] #generated-prompt{background:#142119;color:#e5efe7}
+:root[data-theme="dark"] .tracker-toolbar,
+:root[data-theme="dark"] .tracker-editor,
+:root[data-theme="dark"] #tracker .tracker-quick-editor,
+:root[data-theme="dark"] #tracker .tracker-backup,
+:root[data-theme="dark"] .daily-check{
+  background:#1a2920;border-color:var(--line)
+}
+:root[data-theme="dark"] .tracker-toolbar input,
+:root[data-theme="dark"] .tracker-toolbar select{background:#223228}
+:root[data-theme="dark"] .tracker-empty-icon{background:var(--mint);color:var(--green)}
+:root[data-theme="dark"] .progress-track{background:#2c4032}
+:root[data-theme="dark"] .progress-track span{background:#73bd8b}
+:root[data-theme="dark"] .tracker-campaign,
+:root[data-theme="dark"] #tracker .tracker-campaign{
+  background:#1a2920;border-color:var(--line)
+}
+:root[data-theme="dark"] .tracker-campaign .boost-card,
+:root[data-theme="dark"] #tracker .tracker-campaign .boost-card{
+  background:#1e2e24;border-color:var(--line)
+}
+:root[data-theme="dark"] .tracker-editor input[readonly],
+:root[data-theme="dark"] #tracker .tracker-quick-editor input[readonly]{
+  background:#243a2b;color:#c8ecd4;border-color:#425a47
+}
+:root[data-theme="dark"] #tracker .campaign-heading-copy .campaign-goal{
+  background:var(--mint);color:#b6eac7
+}
+:root[data-theme="dark"] .daily-check-action,
+:root[data-theme="dark"] .report-extremes{color:#c4d7c8}
+:root[data-theme="dark"] .client-report{background:#101813}
+:root[data-theme="dark"] .report-sheet{
+  background:#17231c;border-color:var(--line)
+}
+:root[data-theme="dark"] .report-table td{border-color:var(--line)}
+:root[data-theme="dark"] .report-totals,
+:root[data-theme="dark"] .boost-performance{color:#a8e0ba}
+:root[data-theme="dark"] .signal-on-track{
+  background:var(--mint);color:#c1edd0
+}
+
+/* Reports should be legible in print, even if dark mode is active. */
+@media print{
+  .theme-toggle{display:none!important}
+  :root[data-theme="dark"]{
+    color-scheme:light;
+    --ink:#202b25;--muted:#6e7972;--line:#e5e9e4;
+    --green:#235c43;--white:#fff;--mint:#e9f2ec;
+    color:#202b25;background:#fff
+  }
+  :root[data-theme="dark"] .client-report,
+  :root[data-theme="dark"] .report-sheet{
+    background:#fff;color:#202b25;border-color:#e5e9e4
+  }
+  :root[data-theme="dark"] .report-table td{border-color:#e5e9e4}
+  :root[data-theme="dark"] .report-totals{color:#235c43}
+}
